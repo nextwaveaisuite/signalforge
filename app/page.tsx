@@ -44,7 +44,13 @@ export default function Home() {
     loadSignals()
   }
 
-  // ---- PHASE 3 INSIGHT ----
+  async function clearHistory() {
+    await fetch('/api/signals/clear', { method: 'POST' })
+    setSignals([])
+    setStatus('History cleared ✅')
+  }
+
+  // ---------- INTELLIGENCE ----------
   const insights = useMemo(() => {
     const buckets: Record<string, Signal[]> = {}
     signals.forEach(s => {
@@ -76,6 +82,18 @@ export default function Home() {
         {status && <p>{status}</p>}
       </section>
 
+      {/* CONTROLS */}
+      {signals.length > 0 && (
+        <section style={{ marginBottom: 24 }}>
+          <button
+            onClick={clearHistory}
+            style={{ background: '#7f1d1d', marginTop: 8 }}
+          >
+            Clear History
+          </button>
+        </section>
+      )}
+
       {/* INTELLIGENCE */}
       {insights.length > 0 && (
         <section
@@ -87,6 +105,10 @@ export default function Home() {
           }}
         >
           <h2>Founder Intelligence</h2>
+          <p style={{ opacity: 0.7 }}>
+            These patterns are extracted from your signal history.
+          </p>
+
           {insights.map((i, idx) => (
             <p key={idx}>
               <strong>{i.normalized}</strong> — appears {i.count}× · avg
@@ -96,7 +118,7 @@ export default function Home() {
         </section>
       )}
 
-      {/* RESULTS */}
+      {/* HISTORY */}
       {signals.map((s, i) => (
         <div
           key={i}
@@ -104,7 +126,8 @@ export default function Home() {
             border: '1px solid #333',
             padding: 16,
             borderRadius: 6,
-            marginBottom: 16
+            marginBottom: 16,
+            opacity: i === 0 ? 1 : 0.85
           }}
         >
           <div
