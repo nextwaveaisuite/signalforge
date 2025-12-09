@@ -1,21 +1,30 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react'
 
 export default function BuildBoard() {
-  const [data, setData] = useState<any[]>([]);
+  const [signals, setSignals] = useState<any[]>([])
 
   useEffect(() => {
-    fetch('/api/build-board')
+    fetch('/api/signals')
       .then(res => res.json())
-      .then(setData)
-      .catch(() => setData([]));
-  }, []);
+      .then(setSignals)
+  }, [])
 
   return (
-    <div>
-      <h2>Build Board</h2>
-      <pre>{JSON.stringify(data, null, 2)}</pre>
-    </div>
-  );
+    <main>
+      <h1>Build Board</h1>
+
+      {signals.length === 0 && <p>No signals yet.</p>}
+
+      {signals.map((s, i) => (
+        <div key={i} style={{ border: '1px solid #333', padding: 12, marginBottom: 10 }}>
+          <strong>{s.verdict}</strong> — Score: {s.score}
+          <p><em>Raw:</em> {s.raw_text}</p>
+          <p><em>Normalized:</em> {s.normalized}</p>
+          <p><em>Reason:</em> {s.reason}</p>
+        </div>
+      ))}
+    </main>
+  )
 }
