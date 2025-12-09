@@ -25,60 +25,14 @@ export default function BuildBoard() {
       .then(setSignals)
   }, [])
 
-  function exportJSON() {
-    const blob = new Blob([JSON.stringify(signals, null, 2)], {
-      type: 'application/json'
-    })
-    download(blob, 'signalforge-build-board.json')
-  }
-
-  function exportCSV() {
-    const header = ['verdict', 'score', 'normalized', 'raw_text', 'reason']
-    const rows = signals.map(s =>
-      [
-        s.verdict,
-        s.score,
-        s.normalized,
-        s.raw_text.replace(/"/g, '""'),
-        s.reason.replace(/"/g, '""')
-      ].map(v => `"${v}"`).join(',')
-    )
-
-    const csv = [header.join(','), ...rows].join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    download(blob, 'signalforge-build-board.csv')
-  }
-
-  function download(blob: Blob, filename: string) {
-    const link = document.createElement('a')
-    link.href = URL.createObjectURL(blob)
-    link.download = filename
-    link.click()
-    URL.revokeObjectURL(link.href)
-  }
-
   return (
-    <main style={{ maxWidth: 880 }}>
+    <main style={{ maxWidth: 900 }}>
       <h1>Build Board</h1>
 
-      {signals.length > 0 && (
-        <div style={{ marginBottom: 16 }}>
-          <button onClick={exportJSON} style={{ marginRight: 8 }}>
-            Export JSON
-          </button>
-          <button onClick={exportCSV}>Export CSV</button>
-        </div>
-      )}
-
       {signals.length === 0 && (
-        <div style={{ opacity: 0.7 }}>
-          <p>No signals yet.</p>
-          <p>
-            Good signals describe <strong>daily pain</strong>,{' '}
-            <strong>manual work</strong>, or clear{' '}
-            <strong>automation needs</strong>.
-          </p>
-        </div>
+        <p style={{ opacity: 0.6 }}>
+          No persisted signals yet.
+        </p>
       )}
 
       {signals.map((s, i) => (
@@ -86,55 +40,35 @@ export default function BuildBoard() {
           key={i}
           style={{
             border: '1px solid #333',
+            borderRadius: 6,
             padding: 16,
-            marginBottom: 16,
-            borderRadius: 6
+            marginBottom: 16
           }}
         >
-          <div
-            style={{
-              color: verdictColor[s.verdict],
-              fontWeight: 700,
-              fontSize: 18
-            }}
-          >
-            {s.verdict} — Score: {s.score}
+          <div style={{ color: verdictColor[s.verdict], fontSize: 18, fontWeight: 700 }}>
+            {s.verdict} — Score {s.score}
           </div>
 
-          <div
-            style={{
-              marginTop: 8,
-              height: 8,
-              background: '#222',
-              borderRadius: 4,
-              overflow: 'hidden'
-            }}
-          >
+          <div style={{ marginTop: 8, background: '#222', height: 8, borderRadius: 4 }}>
             <div
               style={{
                 width: `${s.score}%`,
+                background: verdictColor[s.verdict],
                 height: '100%',
-                background: verdictColor[s.verdict]
+                borderRadius: 4
               }}
             />
           </div>
 
-          <p style={{ marginTop: 12 }}>
-            <strong>Raw:</strong> {s.raw_text}
-          </p>
+          <p><strong>Raw:</strong> {s.raw_text}</p>
+          <p><strong>Normalized:</strong> {s.normalized}</p>
 
-          <p>
-            <strong>Normalized:</strong> {s.normalized}
-          </p>
-
-          <div>
-            <strong>Why:</strong>
-            <ul>
-              {s.reason.split(', ').map((r, idx) => (
-                <li key={idx}>{r}</li>
-              ))}
-            </ul>
-          </div>
+          <strong>Why:</strong>
+          <ul>
+            {s.reason.split(', ').map((r, idx) => (
+              <li key={idx}>{r}</li>
+            ))}
+          </ul>
         </div>
       ))}
     </main>
