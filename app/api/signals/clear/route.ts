@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '../../../../lib/supabase'
+import { rotateSession } from '../../../../lib/session'
 
 export async function POST() {
-  await supabase.from('signals').delete().neq('id', '')
+  rotateSession()
   return NextResponse.json({ success: true })
 }
