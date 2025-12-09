@@ -23,7 +23,9 @@ export default function Home() {
   const [status, setStatus] = useState<string | null>(null)
 
   const load = () =>
-    fetch('/api/signals').then(r => r.json()).then(setSignals)
+    fetch('/api/signals')
+      .then(r => r.json())
+      .then(setSignals)
 
   useEffect(() => { load() }, [])
 
@@ -40,25 +42,40 @@ export default function Home() {
     load()
   }
 
-  async function clearHistory() {
+  async function archiveSession() {
     await fetch('/api/signals/clear', { method: 'POST' })
     setStatus('New session started ✅')
     load()
   }
 
-  const { currentSession, pastSessions } = useMemo(() => {
-    if (signals.length === 0) return { currentSession: [], pastSessions: {} }
+  async function deleteSession(session_id: string) {
+    await fetch('/api/signals/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id })
+    })
+    setStatus('Archived session deleted ✅')
+    load()
+  }
 
-    const sessions: Record<string, Signal[]> = {}
+  const { currentSessionId, currentSession, pastSessions } = useMemo(() => {
+    if (signals.length === 0) {
+      return { currentSessionId: null, currentSession: [], pastSessions: {} }
+    }
+
+    const grouped: Record<string, Signal[]> = {}
     signals.forEach(s => {
-      if (!sessions[s.session_id]) sessions[s.session_id] = []
-      sessions[s.session_id].push(s)
+      if (!grouped[s.session_id]) grouped[s.session_id] = []
+      grouped[s.session_id].push(s)
     })
 
-    const [latest, ...rest] = Object.entries(sessions)
+    const ordered = Object.entries(grouped)
+    const [current, ...past] = ordered
+
     return {
-      currentSession: latest?.[1] ?? [],
-      pastSessions: Object.fromEntries(rest)
+      currentSessionId: current?.[0],
+      currentSession: current?.[1] ?? [],
+      pastSessions: Object.fromEntries(past)
     }
   }, [signals])
 
@@ -80,10 +97,10 @@ export default function Home() {
       {/* CONTROLS */}
       {currentSession.length > 0 && (
         <button
-          onClick={clearHistory}
+          onClick={archiveSession}
           style={{ background: '#7f1d1d', margin: '16px 0' }}
         >
-          Archive Session & Start New
+          Archive Current Session & Start New
         </button>
       )}
 
@@ -97,11 +114,25 @@ export default function Home() {
 
       {/* HISTORY */}
       {Object.keys(pastSessions).length > 0 && (
-        <section>
-          <h2>Past Sessions</h2>
+        <section style={{ marginTop: 32 }}>
+          <h2>Archived Sessions</h2>
+
           {Object.entries(pastSessions).map(([sid, items]) => (
             <details key={sid} style={{ marginBottom: 12 }}>
-              <summary>Session ({items.length} signals)</summary>
+              <summary>
+                Session ({items.length} signals)
+              </summary>
+
+              <button
+                onClick={() => deleteSession(sid)}
+                style={{
+                  margin: '8px 0',
+                  background: '#991b1b'
+                }}
+              >
+                Delete This Session
+              </button>
+
               {items.map((s, i) => (
                 <SignalCard key={i} s={s} faded />
               ))}
@@ -120,7 +151,7 @@ function SignalCard({ s, faded }: { s: Signal; faded?: boolean }) {
         border: '1px solid #333',
         padding: 16,
         marginBottom: 12,
-        opacity: faded ? 0.7 : 1
+        opacity: faded ? 0.65 : 1
       }}
     >
       <div style={{ color: verdictColor[s.verdict], fontWeight: 700 }}>
@@ -129,7 +160,9 @@ function SignalCard({ s, faded }: { s: Signal; faded?: boolean }) {
       <p><strong>Raw:</strong> {s.raw_text}</p>
       <p><strong>Normalized:</strong> {s.normalized}</p>
       <ul>
-        {s.reason.split(', ').map((r, i) => <li key={i}>{r}</li>)}
+        {s.reason.split(', ').map((r, i) => (
+          <li key={i}>{r}</li>
+        ))}
       </ul>
     </div>
   )
