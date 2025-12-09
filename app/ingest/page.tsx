@@ -1,19 +1,32 @@
-'use client';
-import { useState } from 'react';
+'use client'
 
-export default function Ingest() {
-  const [text, setText] = useState('');
+import { useState } from 'react'
+
+export default function IngestPage() {
+  const [text, setText] = useState('')
+  const [status, setStatus] = useState<string | null>(null)
+
   async function submit() {
+    setStatus('Processing...')
     await fetch('/api/signals', {
       method: 'POST',
-      body: JSON.stringify({ source: 'manual', raw_text: text })
-    });
-    alert('Signal ingested');
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    })
+    setText('')
+    setStatus('Signal ingested ✅')
   }
+
   return (
-    <div>
-      <textarea onChange={e=>setText(e.target.value)} />
+    <main>
+      <h1>Signal Ingest</h1>
+      <textarea
+        value={text}
+        onChange={e => setText(e.target.value)}
+        placeholder="Describe the raw pain or frustration"
+      />
       <button onClick={submit}>Submit</button>
-    </div>
-  );
+      {status && <p>{status}</p>}
+    </main>
+  )
 }
