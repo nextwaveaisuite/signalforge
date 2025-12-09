@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { ingestSignal } from '../../../lib/signalStore'
 import { supabase } from '../../../lib/supabase'
-import { getSessionId } from '../../../lib/session'
 
 export async function POST(req: Request) {
   const body = await req.json()
@@ -10,21 +9,21 @@ export async function POST(req: Request) {
   }
 
   const signal = ingestSignal(body.text)
-  const session_id = getSessionId()
 
+  // write to DB
   await supabase.from('signals').insert({
     raw_text: signal.raw_text,
     normalized: signal.normalized,
     score: signal.score,
     verdict: signal.verdict,
-    reason: signal.reason,
-    session_id
+    reason: signal.reason
   })
 
   return NextResponse.json({ success: true })
 }
 
 export async function GET() {
+  // ✅ ALWAYS return newest first
   const { data } = await supabase
     .from('signals')
     .select('*')
