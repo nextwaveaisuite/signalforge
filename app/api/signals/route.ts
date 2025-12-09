@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
-let store:any[] = [];
+import { supabase } from '@/lib/supabase';
+
 export async function POST(req: Request) {
-  const body = await req.json();
-  store.push(body);
+  const { source, raw_text } = await req.json();
+
+  await supabase.from('signals_raw').insert({ source, raw_text });
   return NextResponse.json({ ok: true });
 }
