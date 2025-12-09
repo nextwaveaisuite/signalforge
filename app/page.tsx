@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 type Signal = {
   raw_text: string
@@ -9,6 +9,7 @@ type Signal = {
   verdict: 'BUILD' | 'WATCH' | 'KILL'
   reason: string
   session_id: string
+  created_at: string
 }
 
 const verdictColor = {
@@ -21,35 +22,16 @@ export default function Home() {
   const [text, setText] = useState('')
   const [signals, setSignals] = useState<Signal[]>([])
   const [status, setStatus] = useState<string | null>(null)
-  const [focusMode, setFocusMode] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
 
   const load = () =>
     fetch('/api/signals')
       .then(r => r.json())
       .then(setSignals)
 
-  useEffect(() => { load() }, [])
-
-  // Keyboard shortcuts
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-        submit()
-      }
-      if (e.key === 'Escape') {
-        setText('')
-      }
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'n') {
-        archiveSession()
-      }
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
-        setFocusMode(f => !f)
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  })
+    load()
+  }, [])
 
   async function submit() {
     if (!text.trim()) return
@@ -60,32 +42,35 @@ export default function Home() {
       body: JSON.stringify({ text })
     })
     setText('')
-    setStatus('Signal ingested ✅')
-    load()
-    textareaRef.current?.focus()
-  }
-
-  async function archiveSession() {
-    await fetch('/api/signals/clear', { method: 'POST' })
-    setStatus('New session started ✅')
+    setStatus('Signal added ✅')
     load()
   }
 
-  const { currentSession, pastSessions } = useMemo(() => {
-    const grouped: Record<string, Signal[]> = {}
-    signals.forEach(s => {
-      if (!grouped[s.session_id]) grouped[s.session_id] = []
-      grouped[s.session_id].push(s)
+  async function deleteSession(session_id: string) {
+    await fetch('/api/signals/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id })
     })
+    load()
+  }
 
-    const entries = Object.entries(grouped)
-    const [current, ...past] = entries
-
-    return {
-      currentSession: current?.[1] ?? [],
-      pastSessions: Object.fromEntries(past)
-    }
+  // ✅ SOURCE OF TRUTH: TIME, NOT MEMORY
+  const grouped = useMemo(() => {
+    const map: Record<string, Signal[]> = {}
+    signals.forEach(s => {
+      if (!map[s.session_id]) map[s.session_id] = []
+      map[s.session_id].push(s)
+    })
+    return Object.entries(map).sort(
+      (a, b) =>
+        new Date(b[1][0].created_at).getTime() -
+        new Date(a[1][0].created_at).getTime()
+    )
   }, [signals])
+
+  const currentSession = grouped[0]?.[1] ?? []
+  const historySessions = grouped.slice(1)
 
   return (
     <main style={{ maxWidth: 960 }}>
@@ -93,55 +78,59 @@ export default function Home() {
 
       {/* INGEST */}
       <textarea
-        ref={textareaRef}
         value={text}
         onChange={e => setText(e.target.value)}
-        placeholder="Describe the raw pain or frustration…
-Ctrl+Enter to submit"
+        placeholder="Describe the raw pain or frustration…"
       />
       <button onClick={submit}>Submit</button>
-
       {status && <p>{status}</p>}
 
-      {/* CONTROLS */}
-      {currentSession.length > 0 && (
-        <div style={{ margin: '16px 0' }}>
-          <button
-            onClick={archiveSession}
-            style={{ background: '#7f1d1d', marginRight: 8 }}
-          >
-            Archive Session
-          </button>
-
-          <button
-            onClick={() => setFocusMode(f => !f)}
-            style={{ background: '#1f2937' }}
-          >
-            {focusMode ? 'Exit Focus Mode' : 'Focus Mode'}
-          </button>
-        </div>
-      )}
-
-      {/* CURRENT SESSION */}
-      <section>
-        <h2>Current Session</h2>
+      {/* CURRENT RESULTS */}
+      <section style={{ marginTop: 24 }}>
+        <h2>Current Results</h2>
+        {currentSession.length === 0 && (
+          <p style={{ opacity: 0.6 }}>No results yet.</p>
+        )}
         {currentSession.map((s, i) => (
           <SignalCard key={i} s={s} />
         ))}
       </section>
 
-      {/* HISTORY */}
-      {!focusMode && Object.keys(pastSessions).length > 0 && (
+      {/* HISTORY TOGGLE */}
+      {historySessions.length > 0 && (
         <section style={{ marginTop: 32 }}>
-          <h2>Archived Sessions</h2>
-          {Object.entries(pastSessions).map(([sid, items]) => (
-            <details key={sid} style={{ marginBottom: 12 }}>
-              <summary>Session ({items.length} signals)</summary>
-              {items.map((s, i) => (
-                <SignalCard key={i} s={s} faded />
+          <button
+            onClick={() => setShowHistory(v => !v)}
+            style={{ background: '#1f2937' }}
+          >
+            {showHistory ? 'Hide History' : 'Show History'}
+          </button>
+
+          {showHistory && (
+            <div style={{ marginTop: 16 }}>
+              {historySessions.map(([sid, items]) => (
+                <details key={sid} style={{ marginBottom: 12 }}>
+                  <summary>
+                    Session ({items.length} signals)
+                  </summary>
+
+                  <button
+                    onClick={() => deleteSession(sid)}
+                    style={{
+                      background: '#991b1b',
+                      margin: '8px 0'
+                    }}
+                  >
+                    Delete Session
+                  </button>
+
+                  {items.map((s, i) => (
+                    <SignalCard key={i} s={s} faded />
+                  ))}
+                </details>
               ))}
-            </details>
-          ))}
+            </div>
+          )}
         </section>
       )}
     </main>
