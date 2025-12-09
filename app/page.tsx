@@ -21,8 +21,8 @@ export default function Home() {
   const [text, setText] = useState('')
   const [signals, setSignals] = useState<Signal[]>([])
   const [status, setStatus] = useState<string | null>(null)
-  const [undoPayload, setUndoPayload] = useState<{ session_id: string; data: Signal[] } | null>(null)
-  const undoTimer = useRef<NodeJS.Timeout | null>(null)
+  const [focusMode, setFocusMode] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   const load = () =>
     fetch('/api/signals')
@@ -30,6 +30,26 @@ export default function Home() {
       .then(setSignals)
 
   useEffect(() => { load() }, [])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        submit()
+      }
+      if (e.key === 'Escape') {
+        setText('')
+      }
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'n') {
+        archiveSession()
+      }
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
+        setFocusMode(f => !f)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   async function submit() {
     if (!text.trim()) return
@@ -42,49 +62,12 @@ export default function Home() {
     setText('')
     setStatus('Signal ingested ✅')
     load()
+    textareaRef.current?.focus()
   }
 
   async function archiveSession() {
     await fetch('/api/signals/clear', { method: 'POST' })
     setStatus('New session started ✅')
-    load()
-  }
-
-  async function deleteSession(session_id: string, data: Signal[]) {
-    if (!confirm('Delete this archived session? This cannot be undone after 10 seconds.')) {
-      return
-    }
-
-    await fetch('/api/signals/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id })
-    })
-
-    setUndoPayload({ session_id, data })
-    setSignals(prev => prev.filter(s => s.session_id !== session_id))
-    setStatus('Session deleted — undo available')
-
-    if (undoTimer.current) clearTimeout(undoTimer.current)
-    undoTimer.current = setTimeout(() => {
-      setUndoPayload(null)
-      setStatus(null)
-    }, 10000)
-  }
-
-  async function undoDelete() {
-    if (!undoPayload) return
-
-    for (const s of undoPayload.data) {
-      await fetch('/api/signals', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: s.raw_text })
-      })
-    }
-
-    setUndoPayload(null)
-    setStatus('Delete undone ✅')
     load()
   }
 
@@ -110,31 +93,33 @@ export default function Home() {
 
       {/* INGEST */}
       <textarea
+        ref={textareaRef}
         value={text}
         onChange={e => setText(e.target.value)}
-        placeholder="Describe the raw pain or frustration…"
+        placeholder="Describe the raw pain or frustration…
+Ctrl+Enter to submit"
       />
       <button onClick={submit}>Submit</button>
 
       {status && <p>{status}</p>}
 
-      {undoPayload && (
-        <button
-          onClick={undoDelete}
-          style={{ marginTop: 8, background: '#2563eb' }}
-        >
-          Undo delete
-        </button>
-      )}
-
       {/* CONTROLS */}
       {currentSession.length > 0 && (
-        <button
-          onClick={archiveSession}
-          style={{ background: '#7f1d1d', margin: '16px 0' }}
-        >
-          Archive Current Session & Start New
-        </button>
+        <div style={{ margin: '16px 0' }}>
+          <button
+            onClick={archiveSession}
+            style={{ background: '#7f1d1d', marginRight: 8 }}
+          >
+            Archive Session
+          </button>
+
+          <button
+            onClick={() => setFocusMode(f => !f)}
+            style={{ background: '#1f2937' }}
+          >
+            {focusMode ? 'Exit Focus Mode' : 'Focus Mode'}
+          </button>
+        </div>
       )}
 
       {/* CURRENT SESSION */}
@@ -145,21 +130,13 @@ export default function Home() {
         ))}
       </section>
 
-      {/* ARCHIVED */}
-      {Object.keys(pastSessions).length > 0 && (
+      {/* HISTORY */}
+      {!focusMode && Object.keys(pastSessions).length > 0 && (
         <section style={{ marginTop: 32 }}>
           <h2>Archived Sessions</h2>
           {Object.entries(pastSessions).map(([sid, items]) => (
             <details key={sid} style={{ marginBottom: 12 }}>
               <summary>Session ({items.length} signals)</summary>
-
-              <button
-                onClick={() => deleteSession(sid, items)}
-                style={{ background: '#991b1b', marginTop: 8 }}
-              >
-                Delete Session
-              </button>
-
               {items.map((s, i) => (
                 <SignalCard key={i} s={s} faded />
               ))}
