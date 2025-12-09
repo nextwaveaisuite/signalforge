@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
+
 export async function GET() {
-  return NextResponse.json([
-    { tool_name: 'ExampleTool', core_pain: 'Manual work', final_score: 80, verdict: 'BUILD' }
-  ]);
+  const { data } = await supabase
+    .from('signals_raw')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  return NextResponse.json(data || []);
 }
