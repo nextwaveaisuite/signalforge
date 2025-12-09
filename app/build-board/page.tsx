@@ -25,16 +25,57 @@ export default function BuildBoard() {
       .then(setSignals)
   }, [])
 
+  function exportJSON() {
+    const blob = new Blob([JSON.stringify(signals, null, 2)], {
+      type: 'application/json'
+    })
+    download(blob, 'signalforge-build-board.json')
+  }
+
+  function exportCSV() {
+    const header = ['verdict', 'score', 'normalized', 'raw_text', 'reason']
+    const rows = signals.map(s =>
+      [
+        s.verdict,
+        s.score,
+        s.normalized,
+        s.raw_text.replace(/"/g, '""'),
+        s.reason.replace(/"/g, '""')
+      ].map(v => `"${v}"`).join(',')
+    )
+
+    const csv = [header.join(','), ...rows].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    download(blob, 'signalforge-build-board.csv')
+  }
+
+  function download(blob: Blob, filename: string) {
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = filename
+    link.click()
+    URL.revokeObjectURL(link.href)
+  }
+
   return (
-    <main style={{ maxWidth: 860 }}>
+    <main style={{ maxWidth: 880 }}>
       <h1>Build Board</h1>
+
+      {signals.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <button onClick={exportJSON} style={{ marginRight: 8 }}>
+            Export JSON
+          </button>
+          <button onClick={exportCSV}>Export CSV</button>
+        </div>
+      )}
 
       {signals.length === 0 && (
         <div style={{ opacity: 0.7 }}>
           <p>No signals yet.</p>
           <p>
-            Good signals describe <strong>daily pain</strong>,{" "}
-            <strong>manual work</strong>, or clear{" "}
+            Good signals describe <strong>daily pain</strong>,{' '}
+            <strong>manual work</strong>, or clear{' '}
             <strong>automation needs</strong>.
           </p>
         </div>
@@ -60,7 +101,6 @@ export default function BuildBoard() {
             {s.verdict} — Score: {s.score}
           </div>
 
-          {/* Score Bar */}
           <div
             style={{
               marginTop: 8,
