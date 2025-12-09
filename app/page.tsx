@@ -9,7 +9,6 @@ type Signal = {
   score: number
   verdict: 'BUILD' | 'WATCH' | 'KILL'
   reason: string
-  created_at: string
 }
 
 const verdictColor = {
@@ -23,6 +22,7 @@ export default function Home() {
   const [signals, setSignals] = useState<Signal[]>([])
   const [status, setStatus] = useState<string | null>(null)
   const [showHistory, setShowHistory] = useState(false)
+  const [selected, setSelected] = useState<Record<string, boolean>>({})
 
   async function load() {
     const res = await fetch('/api/signals')
@@ -30,9 +30,7 @@ export default function Home() {
     setSignals(data)
   }
 
-  useEffect(() => {
-    load()
-  }, [])
+  useEffect(() => { load() }, [])
 
   async function submit() {
     if (!text.trim()) return
@@ -47,11 +45,19 @@ export default function Home() {
     await load()
   }
 
-  async function resetAll() {
-    if (!confirm('Delete ALL history? This cannot be undone.')) return
-    await fetch('/api/signals/reset', { method: 'POST' })
-    setSignals([])
-    setStatus('All history cleared ✅')
+  async function deleteSelected() {
+    const ids = Object.keys(selected).filter(id => selected[id])
+    if (ids.length === 0) return
+
+    await fetch('/api/signals/delete-selected', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids })
+    })
+
+    setSelected({})
+    setStatus('Selected items deleted ✅')
+    await load()
   }
 
   const [latest, ...history] = signals
@@ -69,10 +75,9 @@ export default function Home() {
       <button onClick={submit}>Submit</button>
       {status && <p>{status}</p>}
 
-      {/* CURRENT RESULT */}
+      {/* LATEST */}
       <section style={{ marginTop: 24 }}>
         <h2>Latest Result</h2>
-        {!latest && <p style={{ opacity: 0.6 }}>No results yet.</p>}
         {latest && <SignalCard s={latest} />}
       </section>
 
@@ -89,15 +94,30 @@ export default function Home() {
           {showHistory && (
             <>
               <button
-                onClick={resetAll}
+                onClick={deleteSelected}
                 style={{ background: '#7f1d1d', marginLeft: 12 }}
               >
-                Delete ALL History
+                Delete Selected
               </button>
 
               <div style={{ marginTop: 16 }}>
                 {history.map(s => (
-                  <SignalCard key={s.id} s={s} faded />
+                  <div key={s.id}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={!!selected[s.id]}
+                        onChange={e =>
+                          setSelected(prev => ({
+                            ...prev,
+                            [s.id]: e.target.checked
+                          }))
+                        }
+                      />{' '}
+                      Select
+                    </label>
+                    <SignalCard s={s} faded />
+                  </div>
                 ))}
               </div>
             </>
@@ -118,12 +138,7 @@ function SignalCard({ s, faded }: { s: Signal; faded?: boolean }) {
         opacity: faded ? 0.65 : 1
       }}
     >
-      <div
-        style={{
-          color: verdictColor[s.verdict],
-          fontWeight: 700
-        }}
-      >
+      <div style={{ color: verdictColor[s.verdict], fontWeight: 700 }}>
         {s.verdict} — Score {s.score}
       </div>
       <p><strong>Raw:</strong> {s.raw_text}</p>
