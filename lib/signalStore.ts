@@ -10,7 +10,6 @@ export interface Signal {
   reason: string
 }
 
-// In-memory store (Phase 1 intentional)
 const signalMemory: Signal[] = []
 
 function normalize(text: string): string {
@@ -24,12 +23,8 @@ function normalize(text: string): string {
     return 'founder ideation uncertainty'
   }
 
-  if (t.includes('build software') || t.includes('saas')) {
-    return 'software product ideation'
-  }
-
-  if (t.includes('time') || t.includes('waste')) {
-    return 'time inefficiency problem'
+  if (t.includes('automation') || t.includes('automate')) {
+    return 'automation opportunity'
   }
 
   return 'unclear but exploratory signal'
@@ -38,8 +33,7 @@ function normalize(text: string): string {
 function scoreSignal(text: string): { score: number; reason: string } {
   const t = text.toLowerCase()
 
-  // Baseline — anything human and non-spam starts here
-  let score = 15
+  let score = 20
   const reasons: string[] = ['Baseline founder signal']
 
   if (t.includes('manual') || t.includes('slow')) {
@@ -47,28 +41,23 @@ function scoreSignal(text: string): { score: number; reason: string } {
     reasons.push('Manual or inefficient process')
   }
 
-  if (t.includes('every day') || t.includes('always')) {
-    score += 15
+  if (t.includes('every day') || t.includes('daily') || t.includes('each day')) {
+    score += 20
     reasons.push('High frequency pain')
   }
 
-  if (t.includes('business') || t.includes('client') || t.includes('money')) {
-    score += 15
+  if (t.includes('automation') || t.includes('automate') || t.includes('automated')) {
+    score += 30
+    reasons.push('Explicit automation requirement')
+  }
+
+  if (t.includes('business') || t.includes('client') || t.includes('leads')) {
+    score += 10
     reasons.push('Commercial relevance')
   }
 
-  if (t.includes('automate') || t.includes('tool') || t.includes('software')) {
-    score += 15
-    reasons.push('Automation potential')
-  }
-
-  if (t.includes('what can i build') || t.includes('what should i build')) {
-    score += 10
-    reasons.push('Founder searching for direction')
-  }
-
   if (t.length < 20) {
-    score -= 10
+    score -= 15
     reasons.push('Low clarity input')
   }
 
