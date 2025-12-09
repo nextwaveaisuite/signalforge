@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 type Signal = {
   raw_text: string
@@ -21,6 +21,8 @@ export default function Home() {
   const [text, setText] = useState('')
   const [signals, setSignals] = useState<Signal[]>([])
   const [status, setStatus] = useState<string | null>(null)
+  const [undoPayload, setUndoPayload] = useState<{ session_id: string; data: Signal[] } | null>(null)
+  const undoTimer = useRef<NodeJS.Timeout | null>(null)
 
   const load = () =>
     fetch('/api/signals')
@@ -48,32 +50,55 @@ export default function Home() {
     load()
   }
 
-  async function deleteSession(session_id: string) {
+  async function deleteSession(session_id: string, data: Signal[]) {
+    if (!confirm('Delete this archived session? This cannot be undone after 10 seconds.')) {
+      return
+    }
+
     await fetch('/api/signals/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ session_id })
     })
-    setStatus('Archived session deleted ✅')
+
+    setUndoPayload({ session_id, data })
+    setSignals(prev => prev.filter(s => s.session_id !== session_id))
+    setStatus('Session deleted — undo available')
+
+    if (undoTimer.current) clearTimeout(undoTimer.current)
+    undoTimer.current = setTimeout(() => {
+      setUndoPayload(null)
+      setStatus(null)
+    }, 10000)
+  }
+
+  async function undoDelete() {
+    if (!undoPayload) return
+
+    for (const s of undoPayload.data) {
+      await fetch('/api/signals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: s.raw_text })
+      })
+    }
+
+    setUndoPayload(null)
+    setStatus('Delete undone ✅')
     load()
   }
 
-  const { currentSessionId, currentSession, pastSessions } = useMemo(() => {
-    if (signals.length === 0) {
-      return { currentSessionId: null, currentSession: [], pastSessions: {} }
-    }
-
+  const { currentSession, pastSessions } = useMemo(() => {
     const grouped: Record<string, Signal[]> = {}
     signals.forEach(s => {
       if (!grouped[s.session_id]) grouped[s.session_id] = []
       grouped[s.session_id].push(s)
     })
 
-    const ordered = Object.entries(grouped)
-    const [current, ...past] = ordered
+    const entries = Object.entries(grouped)
+    const [current, ...past] = entries
 
     return {
-      currentSessionId: current?.[0],
       currentSession: current?.[1] ?? [],
       pastSessions: Object.fromEntries(past)
     }
@@ -84,15 +109,23 @@ export default function Home() {
       <h1>SignalForge</h1>
 
       {/* INGEST */}
-      <section>
-        <textarea
-          value={text}
-          onChange={e => setText(e.target.value)}
-          placeholder="Describe the raw pain or frustration…"
-        />
-        <button onClick={submit}>Submit</button>
-        {status && <p>{status}</p>}
-      </section>
+      <textarea
+        value={text}
+        onChange={e => setText(e.target.value)}
+        placeholder="Describe the raw pain or frustration…"
+      />
+      <button onClick={submit}>Submit</button>
+
+      {status && <p>{status}</p>}
+
+      {undoPayload && (
+        <button
+          onClick={undoDelete}
+          style={{ marginTop: 8, background: '#2563eb' }}
+        >
+          Undo delete
+        </button>
+      )}
 
       {/* CONTROLS */}
       {currentSession.length > 0 && (
@@ -112,25 +145,19 @@ export default function Home() {
         ))}
       </section>
 
-      {/* HISTORY */}
+      {/* ARCHIVED */}
       {Object.keys(pastSessions).length > 0 && (
         <section style={{ marginTop: 32 }}>
           <h2>Archived Sessions</h2>
-
           {Object.entries(pastSessions).map(([sid, items]) => (
             <details key={sid} style={{ marginBottom: 12 }}>
-              <summary>
-                Session ({items.length} signals)
-              </summary>
+              <summary>Session ({items.length} signals)</summary>
 
               <button
-                onClick={() => deleteSession(sid)}
-                style={{
-                  margin: '8px 0',
-                  background: '#991b1b'
-                }}
+                onClick={() => deleteSession(sid, items)}
+                style={{ background: '#991b1b', marginTop: 8 }}
               >
-                Delete This Session
+                Delete Session
               </button>
 
               {items.map((s, i) => (
