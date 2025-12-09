@@ -1,0 +1,1 @@
+export type Signal = { source: string; raw_text: string };

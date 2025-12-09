@@ -1,0 +1,1 @@
+export type Score = { final: number; verdict: string };
