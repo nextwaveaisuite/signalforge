@@ -1,14 +1,14 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 type Signal = {
+  id: string
   raw_text: string
   normalized: string
   score: number
   verdict: 'BUILD' | 'WATCH' | 'KILL'
   reason: string
-  session_id: string
   created_at: string
 }
 
@@ -24,10 +24,11 @@ export default function Home() {
   const [status, setStatus] = useState<string | null>(null)
   const [showHistory, setShowHistory] = useState(false)
 
-  const load = () =>
-    fetch('/api/signals')
-      .then(r => r.json())
-      .then(setSignals)
+  async function load() {
+    const res = await fetch('/api/signals')
+    const data = await res.json()
+    setSignals(data)
+  }
 
   useEffect(() => {
     load()
@@ -42,38 +43,21 @@ export default function Home() {
       body: JSON.stringify({ text })
     })
     setText('')
-    setStatus('Signal added ✅')
-    load()
+    setStatus('Added ✅')
+    await load()
   }
 
-  async function deleteSession(session_id: string) {
-    await fetch('/api/signals/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ session_id })
-    })
-    load()
+  async function resetAll() {
+    if (!confirm('Delete ALL history? This cannot be undone.')) return
+    await fetch('/api/signals/reset', { method: 'POST' })
+    setSignals([])
+    setStatus('All history cleared ✅')
   }
 
-  // ✅ SOURCE OF TRUTH: TIME, NOT MEMORY
-  const grouped = useMemo(() => {
-    const map: Record<string, Signal[]> = {}
-    signals.forEach(s => {
-      if (!map[s.session_id]) map[s.session_id] = []
-      map[s.session_id].push(s)
-    })
-    return Object.entries(map).sort(
-      (a, b) =>
-        new Date(b[1][0].created_at).getTime() -
-        new Date(a[1][0].created_at).getTime()
-    )
-  }, [signals])
-
-  const currentSession = grouped[0]?.[1] ?? []
-  const historySessions = grouped.slice(1)
+  const [latest, ...history] = signals
 
   return (
-    <main style={{ maxWidth: 960 }}>
+    <main style={{ maxWidth: 900 }}>
       <h1>SignalForge</h1>
 
       {/* INGEST */}
@@ -85,19 +69,15 @@ export default function Home() {
       <button onClick={submit}>Submit</button>
       {status && <p>{status}</p>}
 
-      {/* CURRENT RESULTS */}
+      {/* CURRENT RESULT */}
       <section style={{ marginTop: 24 }}>
-        <h2>Current Results</h2>
-        {currentSession.length === 0 && (
-          <p style={{ opacity: 0.6 }}>No results yet.</p>
-        )}
-        {currentSession.map((s, i) => (
-          <SignalCard key={i} s={s} />
-        ))}
+        <h2>Latest Result</h2>
+        {!latest && <p style={{ opacity: 0.6 }}>No results yet.</p>}
+        {latest && <SignalCard s={latest} />}
       </section>
 
-      {/* HISTORY TOGGLE */}
-      {historySessions.length > 0 && (
+      {/* HISTORY */}
+      {history.length > 0 && (
         <section style={{ marginTop: 32 }}>
           <button
             onClick={() => setShowHistory(v => !v)}
@@ -107,29 +87,20 @@ export default function Home() {
           </button>
 
           {showHistory && (
-            <div style={{ marginTop: 16 }}>
-              {historySessions.map(([sid, items]) => (
-                <details key={sid} style={{ marginBottom: 12 }}>
-                  <summary>
-                    Session ({items.length} signals)
-                  </summary>
+            <>
+              <button
+                onClick={resetAll}
+                style={{ background: '#7f1d1d', marginLeft: 12 }}
+              >
+                Delete ALL History
+              </button>
 
-                  <button
-                    onClick={() => deleteSession(sid)}
-                    style={{
-                      background: '#991b1b',
-                      margin: '8px 0'
-                    }}
-                  >
-                    Delete Session
-                  </button>
-
-                  {items.map((s, i) => (
-                    <SignalCard key={i} s={s} faded />
-                  ))}
-                </details>
-              ))}
-            </div>
+              <div style={{ marginTop: 16 }}>
+                {history.map(s => (
+                  <SignalCard key={s.id} s={s} faded />
+                ))}
+              </div>
+            </>
           )}
         </section>
       )}
@@ -147,7 +118,12 @@ function SignalCard({ s, faded }: { s: Signal; faded?: boolean }) {
         opacity: faded ? 0.65 : 1
       }}
     >
-      <div style={{ color: verdictColor[s.verdict], fontWeight: 700 }}>
+      <div
+        style={{
+          color: verdictColor[s.verdict],
+          fontWeight: 700
+        }}
+      >
         {s.verdict} — Score {s.score}
       </div>
       <p><strong>Raw:</strong> {s.raw_text}</p>
