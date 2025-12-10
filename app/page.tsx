@@ -1,213 +1,220 @@
+ import { Metadata } from "next";
+import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "SignalForge — Decide What to Build Before You Waste Months",
+  description:
+    "SignalForge evaluates real pain signals and tells you whether to BUILD, WATCH, or KILL an idea — with clear justification.",
+};
+
 export default function HomePage() {
   return (
     <main
       style={{
         minHeight: "100vh",
-        backgroundColor: "#000",
-        color: "#fff",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        textAlign: "center",
-        padding: "80px 24px",
+        background: "#0b0f0e",
+        padding: "40px",
       }}
     >
-      <div style={{ maxWidth: "900px", width: "100%" }}>
-        {/* HERO */}
+      <div
+        style={{
+          maxWidth: "880px",
+          textAlign: "center",
+          color: "#ffffff",
+        }}
+      >
+        {/* HEADER */}
         <h1
           style={{
-            fontSize: "3.8rem",
-            fontWeight: 900,
-            marginBottom: "1.2rem",
-            letterSpacing: "-1px",
+            fontSize: "3.5rem",
+            fontWeight: 800,
+            lineHeight: 1.1,
+            marginBottom: "24px",
           }}
         >
           <span style={{ color: "#ffffff" }}>Signal</span>
-          <span
-            style={{
-              color: "#22c55e",
-              textShadow: "0 0 18px rgba(34,197,94,0.45)",
-            }}
-          >
-            Forge
-          </span>
+          <span style={{ color: "#22c55e" }}>Forge</span>
         </h1>
 
+        {/* SUBHEAD */}
         <p
           style={{
-            fontSize: "1.35rem",
-            opacity: 0.9,
-            marginBottom: "3rem",
-            lineHeight: 1.6,
+            fontSize: "1.4rem",
+            marginBottom: "32px",
+            color: "#d1d5db",
           }}
         >
-          SignalForge evaluates real pain signals and tells you whether to{" "}
-          <strong style={{ color: "#22c55e" }}>BUILD</strong>,{" "}
-          <strong style={{ color: "#eab308" }}>WATCH</strong>, or{" "}
-          <strong style={{ color: "#ef4444" }}>KILL</strong>{" "}
-          an idea — with clear reasoning.
+          Decide what to <strong>BUILD</strong>, <strong>WATCH</strong>, or{" "}
+          <strong>KILL</strong> — before you waste months building the wrong
+          thing.
         </p>
 
-        {/* CTA */}
-        <div style={{ marginBottom: "4rem" }}>
-          <a
+        {/* PRIMARY CTA */}
+        <div style={{ marginBottom: "24px" }}>
+          <Link
             href="/dashboard"
             style={{
-              display: "inline-block",
-              backgroundColor: "#22c55e",
-              color: "#000",
-              padding: "16px 32px",
+              background: "#22c55e",
+              color: "#0b0f0e",
+              padding: "14px 28px",
               fontSize: "1.1rem",
-              fontWeight: 800,
+              fontWeight: 700,
               borderRadius: "10px",
               textDecoration: "none",
-              marginRight: "18px",
+              display: "inline-block",
+              marginRight: "12px",
             }}
           >
             Run Your First Signal →
-          </a>
+          </Link>
 
-          <a
-            href="/api/stripe/checkout"
+          <Link
+            href="/upgrade"
             style={{
-              display: "inline-block",
-              border: "2px solid #22c55e",
               color: "#22c55e",
-              padding: "16px 32px",
               fontSize: "1.1rem",
-              fontWeight: 800,
-              borderRadius: "10px",
+              fontWeight: 600,
               textDecoration: "none",
             }}
           >
             Upgrade to Pro →
-          </a>
+          </Link>
         </div>
 
-        {/* PROBLEM */}
+        {/* EXPLANATION */}
         <p
           style={{
-            fontSize: "1.15rem",
-            opacity: 0.8,
-            lineHeight: 1.7,
-            marginBottom: "2.2rem",
+            fontSize: "1rem",
+            lineHeight: 1.6,
+            color: "#9ca3af",
+            marginTop: "40px",
           }}
         >
-          Founders don’t fail from lack of ideas.
-          <br />
-          They fail by building ideas that feel good — but solve weak, rare,
-          or non-urgent pain.
+          Founders don’t fail from lack of ideas.  
+          They fail by building ideas that *feel good* — but solve weak, rare, or
+          non-urgent pain.
         </p>
 
         <p
           style={{
-            fontSize: "1.2rem",
-            fontWeight: 600,
-            marginBottom: "4rem",
+            fontSize: "1rem",
+            lineHeight: 1.6,
+            color: "#9ca3af",
+            marginTop: "12px",
           }}
         >
           SignalForge removes guessing from the earliest decision.
         </p>
 
         {/* HOW IT WORKS */}
-        <h2 style={{ marginBottom: "1.6rem" }}>How SignalForge works</h2>
+        <div style={{ marginTop: "48px" }}>
+          <h2
+            style={{
+              fontSize: "1.6rem",
+              fontWeight: 700,
+              marginBottom: "16px",
+              color: "#ffffff",
+            }}
+          >
+            How SignalForge Works
+          </h2>
 
-        <ul
-          style={{
-            listStyle: "none",
-            padding: 0,
-            marginBottom: "4rem",
-            lineHeight: 2,
-            fontSize: "1.05rem",
-            opacity: 0.9,
-          }}
-        >
-          <li>➤ Ingest raw pain, frustration, or demand</li>
-          <li>➤ Normalize and score the signal</li>
-          <li>➤ Get a BUILD / WATCH / KILL verdict with reasoning</li>
-        </ul>
+          <ul
+            style={{
+              listStyle: "none",
+              padding: 0,
+              margin: 0,
+              color: "#d1d5db",
+              fontSize: "1rem",
+              lineHeight: 1.8,
+            }}
+          >
+            <li>➤ Ingest raw pain, frustration, or demand</li>
+            <li>➤ Normalize and score the signal</li>
+            <li>➤ Get a verdict with clear reasoning</li>
+          </ul>
+        </div>
 
         {/* EXAMPLE */}
         <div
           style={{
-            border: "1px solid rgba(34,197,94,0.35)",
+            marginTop: "48px",
+            padding: "24px",
+            border: "1px solid #1f2937",
             borderRadius: "12px",
-            padding: "28px",
-            marginBottom: "4rem",
+            background: "#020617",
           }}
         >
-          <h3 style={{ marginBottom: "1rem" }}>Example Decision</h3>
+          <h3 style={{ marginBottom: "12px", color: "#ffffff" }}>
+            Example Signal Result
+          </h3>
 
-          <p style={{ opacity: 0.9 }}>
-            <strong>Raw:</strong>
-            <br />
-            “I manually qualify leads every day and it’s slow and error-prone.”
+          <p style={{ color: "#9ca3af" }}>
+            <strong>Raw:</strong> “I manually qualify leads every day and it’s
+            slow and error-prone.”
           </p>
 
-          <p style={{ marginTop: "1rem", fontWeight: 700 }}>
-            Result:{" "}
-            <span style={{ color: "#22c55e" }}>
-              BUILD — Score: 85
-            </span>
+          <p style={{ marginTop: "12px", color: "#22c55e", fontWeight: 700 }}>
+            BUILD — Score: 85
           </p>
 
-          <p style={{ opacity: 0.9 }}>
-            <strong>Why:</strong>
-            <br />
-            • Manual workflow<br />
-            • High-frequency pain<br />
-            • Automation-ready<br />
+          <p style={{ color: "#9ca3af", marginTop: "8px" }}>
+            • Manual workflow <br />
+            • High-frequency pain <br />
+            • Automation-ready <br />
             • Commercial relevance
           </p>
         </div>
 
         {/* PRICING */}
-        <h2 style={{ marginBottom: "1rem" }}>Pricing</h2>
+        <div style={{ marginTop: "48px" }}>
+          <h2 style={{ fontSize: "1.6rem", fontWeight: 700 }}>
+            $29/month — SignalForge Pro
+          </h2>
 
-        <p
-          style={{
-            fontSize: "1.5rem",
-            fontWeight: 800,
-            marginBottom: "1.2rem",
-          }}
-        >
-          $29 / month — SignalForge Pro
-        </p>
+          <ul
+            style={{
+              listStyle: "none",
+              padding: 0,
+              marginTop: "16px",
+              color: "#d1d5db",
+              lineHeight: 1.8,
+            }}
+          >
+            <li>✔ Unlimited signals</li>
+            <li>✔ Full decision history</li>
+            <li>✔ Clear BUILD / WATCH / KILL verdicts</li>
+          </ul>
 
-        <ul
-          style={{
-            listStyle: "none",
-            padding: 0,
-            marginBottom: "2.2rem",
-            lineHeight: 2,
-            opacity: 0.9,
-          }}
-        >
-          <li>✔ Unlimited signals</li>
-          <li>✔ Full decision history</li>
-          <li>✔ Clear BUILD / WATCH / KILL verdicts</li>
-        </ul>
+          <div style={{ marginTop: "24px" }}>
+            <Link
+              href="/upgrade"
+              style={{
+                background: "#22c55e",
+                color: "#0b0f0e",
+                padding: "14px 28px",
+                fontWeight: 700,
+                borderRadius: "10px",
+                textDecoration: "none",
+              }}
+            >
+              Upgrade to Pro →
+            </Link>
+          </div>
 
-        <a
-          href="/api/stripe/checkout"
-          style={{
-            display: "inline-block",
-            backgroundColor: "#22c55e",
-            color: "#000",
-            padding: "16px 36px",
-            fontSize: "1.15rem",
-            fontWeight: 900,
-            borderRadius: "10px",
-            textDecoration: "none",
-            marginBottom: "3rem",
-          }}
-        >
-          Upgrade to Pro →
-        </a>
-
-        <p style={{ opacity: 0.55, fontSize: "0.9rem" }}>
-          Part of NextWave AI Suite · Secure payments via Stripe
-        </p>
+          <p
+            style={{
+              marginTop: "20px",
+              fontSize: "0.9rem",
+              color: "#6b7280",
+            }}
+          >
+            Part of NextWave AI Suite · Secure payments via Stripe
+          </p>
+        </div>
       </div>
     </main>
   );
