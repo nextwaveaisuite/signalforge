@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import stripe from "@/lib/stripe";
+import Stripe from "stripe";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2023-10-16",
+});
 
 export async function POST() {
   try {
@@ -16,10 +20,10 @@ export async function POST() {
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (error) {
-    console.error("Stripe checkout error:", error);
+  } catch (err) {
+    console.error(err);
     return NextResponse.json(
-      { error: "Checkout failed" },
+      { error: "Stripe checkout failed" },
       { status: 500 }
     );
   }
