@@ -8,19 +8,18 @@ export async function POST() {
       payment_method_types: ["card"],
       line_items: [
         {
-          price: process.env.STRIPE_PRICE_ID!,
+          price: process.env.STRIPE_PRICE_ID!, // from Stripe dashboard
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?success=true`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/?cancelled=true`,
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?upgrade=success`,
+      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard`,
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (error: any) {
-    console.error("Stripe checkout error:", error);
+  } catch (err) {
     return NextResponse.json(
-      { error: error.message },
+      { error: "Unable to create checkout session" },
       { status: 500 }
     );
   }
