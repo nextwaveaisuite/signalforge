@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 
 type Result = {
   verdict: "BUILD" | "WATCH" | "KILL";
@@ -17,8 +16,9 @@ export default function DashboardPage() {
   const [latest, setLatest] = useState<Result | null>(null);
   const [history, setHistory] = useState<Result[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [loadingUpgrade, setLoadingUpgrade] = useState(false);
 
-  // TEMP: frontend-only evaluation (UX flow)
+  // ✅ TEMP deterministic evaluation (UX flow only)
   function evaluateSignal(text: string): Result {
     const t = text.toLowerCase();
 
@@ -69,14 +69,37 @@ export default function DashboardPage() {
     setInput("");
   }
 
+  // ✅ STRIPE CHECKOUT HANDLER — FULL
+  async function handleUpgrade() {
+    setLoadingUpgrade(true);
+
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+      });
+
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err) {
+      alert("Unable to start checkout. Please try again.");
+    } finally {
+      setLoadingUpgrade(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-black text-white flex flex-col items-center px-6 py-16">
+      {/* HEADER */}
       <div className="text-center mb-10 max-w-3xl">
         <h1 className="text-4xl font-extrabold mb-2">
           <span className="text-white">Signal</span>
           <span className="text-green-400">Forge</span> Dashboard
         </h1>
-        <p className="text-gray-400">Paste real pain. Get a clear decision.</p>
+        <p className="text-gray-400">
+          Paste real pain. Get a clear BUILD / WATCH / KILL decision.
+        </p>
       </div>
 
       {/* INPUT */}
@@ -87,6 +110,7 @@ export default function DashboardPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
         />
+
         <button
           onClick={handleSubmit}
           className="mt-4 w-full bg-green-500 hover:bg-green-600 text-black font-semibold py-3 rounded-lg"
@@ -99,6 +123,7 @@ export default function DashboardPage() {
       {latest && (
         <div className="w-full max-w-3xl border border-gray-800 rounded-xl p-6 mb-8">
           <h2 className="text-xl font-bold text-center mb-3">Latest Result</h2>
+
           <div className="text-center mb-4">
             <span
               className={`text-2xl font-extrabold ${
@@ -112,9 +137,11 @@ export default function DashboardPage() {
               {latest.verdict} — Score {latest.score}
             </span>
           </div>
+
           <p className="text-gray-400 italic text-center mb-4">
             “{latest.raw}”
           </p>
+
           <ul className="text-gray-300 text-center space-y-1">
             {latest.reason.map((r, i) => (
               <li key={i}>• {r}</li>
@@ -160,12 +187,13 @@ export default function DashboardPage() {
                   <p className="mb-2">
                     🔒 Unlock full decision history with SignalForge Pro
                   </p>
-                  <Link
-                    href="/pricing"
+                  <button
+                    onClick={handleUpgrade}
+                    disabled={loadingUpgrade}
                     className="text-green-400 hover:underline font-semibold"
                   >
                     Upgrade to Pro →
-                  </Link>
+                  </button>
                 </div>
               )}
             </>
@@ -181,14 +209,15 @@ export default function DashboardPage() {
         <ul className="text-gray-300 mb-6 space-y-1">
           <li>✔ Unlimited signals</li>
           <li>✔ Full decision history</li>
-          <li>✔ Clear BUILD / WATCH / KILL verdicts</li>
+          <li>✔ Clear BUILD / WATCH / KILL results</li>
         </ul>
-        <Link
-          href="/pricing"
-          className="inline-block bg-green-500 hover:bg-green-600 text-black font-semibold px-8 py-3 rounded-lg"
+        <button
+          onClick={handleUpgrade}
+          disabled={loadingUpgrade}
+          className="bg-green-500 hover:bg-green-600 text-black font-semibold px-8 py-3 rounded-lg disabled:opacity-60"
         >
-          Upgrade to Pro →
-        </Link>
+          {loadingUpgrade ? "Redirecting…" : "Upgrade to Pro →"}
+        </button>
       </div>
     </main>
   );
