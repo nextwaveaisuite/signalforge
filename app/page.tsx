@@ -1,76 +1,141 @@
-'use client'
+import Link from "next/link";
 
-import { useState } from 'react'
-
-export default function IntakePage() {
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    budget: '',
-    timeline: '',
-    intent: ''
-  })
-  const [status, setStatus] = useState<string | null>(null)
-
-  function update(e: any) {
-    setForm({ ...form, [e.target.name]: e.target.value })
-  }
-
-  async function submit() {
-    setStatus('Submitting...')
-    const res = await fetch('/api/leads', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form)
-    })
-
-    if (res.ok) {
-      setStatus('Thanks! We will review and respond shortly.')
-      setForm({
-        name: '',
-        email: '',
-        budget: '',
-        timeline: '',
-        intent: ''
-      })
-    } else {
-      setStatus('Something went wrong. Please try again.')
-    }
-  }
-
+export default function Home() {
   return (
-    <main style={{ maxWidth: 500 }}>
-      <h1>Contact Us</h1>
-      <p>Please answer a few quick questions.</p>
+    <main style={{
+      backgroundColor: "#0b0b0b",
+      color: "#ffffff",
+      minHeight: "100vh",
+      padding: "80px 24px",
+      fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+    }}>
+      <div style={{ maxWidth: 900, margin: "0 auto" }}>
 
-      <input name="name" placeholder="Name" value={form.name} onChange={update} />
-      <input name="email" placeholder="Email" value={form.email} onChange={update} />
+        {/* HERO */}
+        <h1 style={{ fontSize: 52, lineHeight: 1.1 }}>
+          Know what to build —
+          <span style={{ color: "#00e676" }}> before you waste months.</span>
+        </h1>
 
-      <select name="budget" value={form.budget} onChange={update}>
-        <option value="">Budget</option>
-        <option>$0–$500</option>
-        <option>$500–$2,000</option>
-        <option>$2,000+</option>
-      </select>
+        <p style={{ fontSize: 20, marginTop: 20, opacity: 0.85 }}>
+          SignalForge evaluates real pain signals and tells you whether to
+          <strong> BUILD, WATCH, or KILL</strong> an idea — with clear reasoning.
+        </p>
 
-      <select name="timeline" value={form.timeline} onChange={update}>
-        <option value="">Timeline</option>
-        <option>Immediately</option>
-        <option>Within 30 days</option>
-        <option>1–3 months</option>
-        <option>Just researching</option>
-      </select>
+        <div style={{ marginTop: 40 }}>
+          <Link href="/dashboard">
+            <button style={{
+              background: "#00e676",
+              color: "#000",
+              padding: "14px 24px",
+              fontSize: 18,
+              fontWeight: 600,
+              borderRadius: 6,
+              border: "none",
+              cursor: "pointer",
+              marginRight: 16
+            }}>
+              Run Your First Signal →
+            </button>
+          </Link>
 
-      <select name="intent" value={form.intent} onChange={update}>
-        <option value="">Purpose</option>
-        <option>Ready to buy</option>
-        <option>Comparing options</option>
-        <option>General question</option>
-      </select>
+          <Link href="/upgrade" style={{ color: "#00e676", fontSize: 16 }}>
+            Upgrade to Pro →
+          </Link>
+        </div>
 
-      <button onClick={submit}>Submit</button>
+        {/* PROBLEM */}
+        <section style={{ marginTop: 100 }}>
+          <h2 style={{ fontSize: 36 }}>Founders don’t fail from lack of ideas.</h2>
+          <p style={{ fontSize: 18, marginTop: 16, opacity: 0.8 }}>
+            They fail by building ideas that feel good — but solve weak, rare,
+            or non-urgent pain.
+          </p>
+          <p style={{ fontSize: 18, marginTop: 16, opacity: 0.8 }}>
+            SignalForge removes guessing from the earliest decision.
+          </p>
+        </section>
 
-      {status && <p>{status}</p>}
+        {/* HOW IT WORKS */}
+        <section style={{ marginTop: 100 }}>
+          <h2 style={{ fontSize: 36 }}>How SignalForge works</h2>
+
+          <ul style={{ marginTop: 24, fontSize: 18, lineHeight: 1.8 }}>
+            <li>➤ Ingest raw pain, frustration, or demand</li>
+            <li>➤ Normalize and score the signal</li>
+            <li>➤ Get a verdict with reasoning</li>
+          </ul>
+        </section>
+
+        {/* EXAMPLE */}
+        <section style={{ marginTop: 100 }}>
+          <h2 style={{ fontSize: 36 }}>Example Decision</h2>
+
+          <pre style={{
+            background: "#121212",
+            padding: 24,
+            borderRadius: 8,
+            marginTop: 20,
+            whiteSpace: "pre-wrap",
+            fontSize: 16
+          }}>
+{`Raw:
+“I manually qualify leads every day and it’s slow and error-prone.”
+
+Result:
+BUILD — Score: 85
+
+Why:
+• Manual workflow
+• High-frequency pain
+• Automation-ready
+• Commercial relevance`}
+          </pre>
+        </section>
+
+        {/* PRICING */}
+        <section style={{ marginTop: 100 }}>
+          <h2 style={{ fontSize: 36 }}>Pricing</h2>
+
+          <p style={{ fontSize: 20, marginTop: 12 }}>
+            <strong>$29/month</strong> — SignalForge Pro
+          </p>
+
+          <ul style={{ marginTop: 16, fontSize: 18, lineHeight: 1.8 }}>
+            <li>✔ Unlimited signals</li>
+            <li>✔ Full decision history</li>
+            <li>✔ Clear BUILD / WATCH / KILL verdicts</li>
+          </ul>
+
+          <Link href="/upgrade">
+            <button style={{
+              marginTop: 32,
+              background: "#00e676",
+              color: "#000",
+              padding: "14px 24px",
+              fontSize: 18,
+              fontWeight: 600,
+              borderRadius: 6,
+              border: "none",
+              cursor: "pointer"
+            }}>
+              Upgrade to Pro →
+            </button>
+          </Link>
+        </section>
+
+        {/* FOOTER */}
+        <footer style={{
+          marginTop: 120,
+          paddingTop: 40,
+          borderTop: "1px solid #222",
+          fontSize: 14,
+          opacity: 0.6
+        }}>
+          Part of <strong>NextWave AI Suite</strong> · Secure payments via Stripe
+        </footer>
+
+      </div>
     </main>
-  )
+  );
 }
