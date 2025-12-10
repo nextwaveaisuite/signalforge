@@ -2,48 +2,39 @@
 
 import { useEffect, useState } from 'react'
 
-type Lead = {
-  id: string
-  name: string
-  email: string
-  score: number
-  status: 'qualified' | 'review' | 'rejected'
-  reason: string
-}
-
 export default function Dashboard() {
-  const [leads, setLeads] = useState<Lead[]>([])
+  const [allowed, setAllowed] = useState<boolean | null>(null)
 
-  async function load() {
-    const res = await fetch('/api/leads/list')
-    setLeads(await res.json())
+  useEffect(() => {
+    fetch('/api/me')
+      .then(res => res.json())
+      .then(data => setAllowed(data.is_pro))
+  }, [])
+
+  if (allowed === null) return <p>Loading...</p>
+
+  if (!allowed) {
+    return (
+      <main>
+        <h1>Upgrade Required</h1>
+        <p>This feature is available on Pro.</p>
+
+        <button
+          onClick={async () => {
+            const res = await fetch('/api/stripe/checkout', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: 'user@email.com' })
+            })
+            const data = await res.json()
+            window.location.href = data.url
+          }}
+        >
+          Upgrade to Pro
+        </button>
+      </main>
+    )
   }
 
-  async function update(id: string, status: Lead['status'], email: string) {
-    await fetch('/api/leads/update-status', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, status, email })
-    })
-    load()
-  }
-
-  useEffect(() => { load() }, [])
-
-  return (
-    <main style={{ maxWidth: 900 }}>
-      <h1>Leads Dashboard</h1>
-
-      {leads.map(l => (
-        <div key={l.id} style={{ border: '1px solid #333', padding: 16, marginBottom: 12 }}>
-          <strong>{l.name}</strong> ({l.score}) — {l.status}
-          <p>{l.reason}</p>
-
-          <button onClick={() => update(l.id, 'qualified', l.email)}>Approve</button>
-          <button onClick={() => update(l.id, 'review', l.email)}>Review</button>
-          <button onClick={() => update(l.id, 'rejected', l.email)}>Reject</button>
-        </div>
-      ))}
-    </main>
-  )
+  return <h1>✅ Pro Dashboard</h1>
 }
