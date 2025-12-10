@@ -1,44 +1,92 @@
-import { NextResponse } from 'next/server'
-import { stripe } from '../../../../lib/stripe'
-import { supabase } from '../../../../lib/supabase'
-import { headers } from 'next/headers'
+import Stripe from "stripe";
+import { NextResponse } from "next/server";
+import { headers } from "next/headers";
+
+/**
+ * IMPORTANT:
+ * - Stripe SDK MUST be installed as a dependency
+ * - STRIPE_SECRET_KEY must exist
+ * - STRIPE_WEBHOOK_SECRET must exist
+ */
+
+const stripe = new Stripe(
+  process.env.STRIPE_SECRET_KEY as string,
+  {
+    apiVersion: "2023-10-16"
+  }
+);
 
 export async function POST(req: Request) {
-  const body = await req.text()
-  const sig = headers().get('stripe-signature')!
+  // 1️⃣ Read raw body (required for Stripe signature verification)
+  const body = await req.text();
 
-  let event
+  // 2️⃣ Get Stripe signature header
+  const signature = headers().get("stripe-signature");
 
+  if (!signature) {
+    return NextResponse.json(
+      { error: "Missing Stripe signature" },
+      { status: 400 }
+    );
+  }
+
+  let event: Stripe.Event;
+
+  // 3️⃣ Verify webhook authenticity
   try {
     event = stripe.webhooks.constructEvent(
       body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    )
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET as string
+    );
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 400 })
+    console.error("❌ Stripe Webhook Verification Failed:", err.message);
+    return NextResponse.json(
+      { error: `Webhook Error: ${err.message}` },
+      { status: 400 }
+    );
   }
 
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object as any
+  // 4️⃣ Handle relevant events
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
 
-    await supabase
-      .from('users')
-      .upsert({
-        email: session.customer_email,
-        is_pro: true,
-        stripe_customer_id: session.customer,
-      })
+        // ✅ PAYMENT SUCCESS
+        // TODO (Phase G+): mark user as PRO in database
+        console.log("✅ Checkout completed:", session.id);
+        break;
+      }
+
+      case "customer.subscription.updated": {
+        const subscription = event.data.object as Stripe.Subscription;
+
+        // ✅ SUBSCRIPTION UPDATED
+        console.log("🔄 Subscription updated:", subscription.id);
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+
+        // ✅ SUBSCRIPTION CANCELLED
+        console.log("🗑️ Subscription deleted:", subscription.id);
+        break;
+      }
+
+      default:
+        // Ignore other events safely
+        console.log(`ℹ️ Unhandled event type: ${event.type}`);
+    }
+  } catch (err) {
+    console.error("❌ Webhook handling error:", err);
+    return NextResponse.json(
+      { error: "Webhook handler failed" },
+      { status: 500 }
+    );
   }
 
-  if (event.type === 'customer.subscription.deleted') {
-    const sub = event.data.object as any
-
-    await supabase
-      .from('users')
-      .update({ is_pro: false })
-      .eq('stripe_customer_id', sub.customer)
-  }
-
-  return NextResponse.json({ received: true })
+  // 5️⃣ Acknowledge receipt to Stripe
+  return NextResponse.json({ received: true });
 }
