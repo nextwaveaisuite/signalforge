@@ -1,37 +1,32 @@
-import { NextRequest, NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+import Stripe from "stripe";
 
-export async function POST(req: NextRequest) {
-  const supabase = createRouteHandlerClient({ cookies });
+export const dynamic = "force-dynamic";
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2024-06-20",
+});
 
-  if (!user)
+export async function POST() {
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      line_items: [
+        {
+          price: process.env.STRIPE_PRO_PRICE_ID,
+          quantity: 1,
+        },
+      ],
+      success_url: `${process.env.NEXT_PUBLIC_URL}/dashboard?upgrade=success`,
+      cancel_url: `${process.env.NEXT_PUBLIC_URL}/dashboard?upgrade=cancelled`,
+    });
+
+    return NextResponse.json({ url: session.url });
+  } catch (err) {
+    console.error("Checkout Error:", err);
     return NextResponse.json(
-      { error: "Not authenticated" },
-      { status: 401 }
+      { error: "Checkout failed" },
+      { status: 500 }
     );
-
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    payment_method_types: ["card"],
-    line_items: [
-      {
-        price: process.env.STRIPE_PRICE_ID!,
-        quantity: 1,
-      },
-    ],
-    success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?upgrade=success`,
-    cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?upgrade=cancelled`,
-    customer_email: user.email!,
-    metadata: {
-      userId: user.id,
-    },
-  });
-
-  return NextResponse.json({ url: session.url });
+  }
 }
