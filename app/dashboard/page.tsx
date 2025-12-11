@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 
+// 🔥 Prevent Vercel from caching old versions of this page
+export const dynamic = "force-dynamic";
+
 type Result = {
   verdict: "BUILD" | "WATCH" | "KILL";
   score: number;
@@ -17,15 +20,12 @@ export default function DashboardPage() {
   const [history, setHistory] = useState<Result[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [loadingUpgrade, setLoadingUpgrade] = useState(false);
-
-  // 🔥 Track user plan
   const [plan, setPlan] = useState<"free" | "pro">("free");
 
-  // 🔥 Fetch user plan
   useEffect(() => {
     async function loadPlan() {
       try {
-        const res = await fetch("/api/user/plan");
+        const res = await fetch("/api/user/plan", { cache: "no-store" });
         const data = await res.json();
         setPlan(data.plan || "free");
       } catch {
@@ -35,12 +35,9 @@ export default function DashboardPage() {
     loadPlan();
   }, []);
 
-  // ❌ FREE users can't evaluate more than 3 signals
-  const limitReached = plan === "free" && history.length >= FREE_HISTORY_LIMIT;
+  const limitReached =
+    plan === "free" && history.length >= FREE_HISTORY_LIMIT;
 
-  // -------------------------------------------------------
-  // Existing evaluator (unchanged)
-  // -------------------------------------------------------
   function evaluateSignal(text: string): Result {
     const t = text.toLowerCase();
 
@@ -71,7 +68,11 @@ export default function DashboardPage() {
       verdict: "KILL",
       score: 20,
       raw: text,
-      reason: ["Weak urgency", "No clear buyer intent", "Low willingness to pay"],
+      reason: [
+        "Weak urgency",
+        "No clear buyer intent",
+        "Low willingness to pay",
+      ],
     };
   }
 
@@ -85,26 +86,27 @@ export default function DashboardPage() {
     setInput("");
   }
 
-  // -------------------------------------------------------
-  // ⭐ FIXED STRIPE CHECKOUT HANDLER (prevents 404 forever)
-  // -------------------------------------------------------
-  async function handleUpgrade(e?: any) {
-    if (e) e.preventDefault(); // ⛔ STOP any default navigation
+  // 🔥 FIXED CHECKOUT HANDLER
+  async function handleUpgrade() {
     setLoadingUpgrade(true);
 
     try {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
+        cache: "no-store",
       });
 
       const data = await res.json();
-      if (data.url) {
+
+      if (data?.url) {
         window.location.href = data.url;
-      } else {
-        alert("Checkout error: No URL returned.");
+        return;
       }
+
+      console.error("Stripe response:", data);
+      alert("Checkout failed: Invalid response.");
     } catch (err) {
-      console.error("UPGRADE ERROR:", err);
+      console.error("Checkout error:", err);
       alert("Unable to start checkout. Please try again.");
     } finally {
       setLoadingUpgrade(false);
@@ -113,6 +115,7 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen bg-black text-white flex flex-col items-center px-6 py-16">
+
       {/* HEADER */}
       <div className="text-center mb-10 max-w-3xl">
         <h1 className="text-4xl font-extrabold mb-2">
@@ -134,14 +137,15 @@ export default function DashboardPage() {
         />
 
         <button
-          type="button"
           onClick={handleSubmit}
           disabled={limitReached}
           className={`mt-4 w-full bg-green-500 hover:bg-green-600 text-black font-semibold py-3 rounded-lg ${
             limitReached ? "opacity-40 cursor-not-allowed" : ""
           }`}
         >
-          {limitReached ? "Limit Reached — Upgrade to Continue" : "Evaluate Signal →"}
+          {limitReached
+            ? "Limit Reached — Upgrade to Continue"
+            : "Evaluate Signal →"}
         </button>
       </div>
 
@@ -180,7 +184,6 @@ export default function DashboardPage() {
       {history.length > 0 && (
         <div className="max-w-3xl w-full text-center mb-16">
           <button
-            type="button"
             onClick={() => setShowHistory(!showHistory)}
             className="text-sm text-gray-400 hover:text-green-400 mb-4"
           >
@@ -189,33 +192,35 @@ export default function DashboardPage() {
 
           {showHistory && (
             <>
-              {history.slice(0, FREE_HISTORY_LIMIT).map((item, i) => (
-                <div
-                  key={i}
-                  className="border border-gray-800 rounded-lg p-4 text-sm mb-3"
-                >
-                  <span
-                    className={`font-semibold ${
-                      item.verdict === "BUILD"
-                        ? "text-green-400"
-                        : item.verdict === "WATCH"
-                        ? "text-yellow-400"
-                        : "text-red-400"
-                    }`}
+              {history
+                .slice(0, FREE_HISTORY_LIMIT)
+                .map((item, i) => (
+                  <div
+                    key={i}
+                    className="border border-gray-800 rounded-lg p-4 text-sm mb-3"
                   >
-                    {item.verdict}
-                  </span>{" "}
-                  — Score {item.score}
-                </div>
-              ))}
+                    <span
+                      className={`font-semibold ${
+                        item.verdict === "BUILD"
+                          ? "text-green-400"
+                          : item.verdict === "WATCH"
+                          ? "text-yellow-400"
+                          : "text-red-400"
+                      }`}
+                    >
+                      {item.verdict}
+                    </span>{" "}
+                    — Score {item.score}
+                  </div>
+                ))}
 
               {history.length > FREE_HISTORY_LIMIT && plan === "free" && (
                 <div className="border border-dashed border-gray-700 rounded-lg p-5 text-gray-400">
-                  <p className="mb-2">🔒 Unlock full decision history with SignalForge Pro</p>
-
+                  <p className="mb-2">
+                    🔒 Unlock full decision history with SignalForge Pro
+                  </p>
                   <button
-                    type="button"
-                    onClick={(e) => handleUpgrade(e)}
+                    onClick={handleUpgrade}
                     disabled={loadingUpgrade}
                     className="text-green-400 hover:underline font-semibold"
                   >
@@ -230,16 +235,16 @@ export default function DashboardPage() {
 
       {/* UPGRADE CARD */}
       <div className="max-w-3xl w-full border border-green-500 rounded-xl p-8 text-center">
-        <h3 className="text-2xl font-bold mb-3 text-green-400">SignalForge Pro — $29/month</h3>
+        <h3 className="text-2xl font-bold mb-3 text-green-400">
+          SignalForge Pro — $29/month
+        </h3>
         <ul className="text-gray-300 mb-6 space-y-1">
           <li>✔ Unlimited signals</li>
           <li>✔ Full decision history</li>
           <li>✔ Clear BUILD / WATCH / KILL results</li>
         </ul>
-
         <button
-          type="button"
-          onClick={(e) => handleUpgrade(e)}
+          onClick={handleUpgrade}
           disabled={loadingUpgrade}
           className="bg-green-500 hover:bg-green-600 text-black font-semibold px-8 py-3 rounded-lg disabled:opacity-60"
         >
