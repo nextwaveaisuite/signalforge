@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createClient } from "@supabase/supabase-js";
 
 type Result = {
   verdict: "BUILD" | "WATCH" | "KILL";
@@ -18,7 +19,42 @@ export default function DashboardPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [loadingUpgrade, setLoadingUpgrade] = useState(false);
 
-  // ✅ TEMP deterministic evaluation (UX flow only)
+  // NEW: Pro status
+  const [isPro, setIsPro] = useState(false);
+  const [loadingUserStatus, setLoadingUserStatus] = useState(true);
+
+  // 🔥 Load Supabase user + Pro status on mount
+  useEffect(() => {
+    async function loadStatus() {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setIsPro(false);
+        setLoadingUserStatus(false);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_pro")
+        .eq("id", user.id)
+        .single();
+
+      setIsPro(profile?.is_pro === true);
+      setLoadingUserStatus(false);
+    }
+
+    loadStatus();
+  }, []);
+
+  // TEMP deterministic evaluation (UX only)
   function evaluateSignal(text: string): Result {
     const t = text.toLowerCase();
 
@@ -63,13 +99,20 @@ export default function DashboardPage() {
 
   function handleSubmit() {
     if (!input.trim()) return;
+
+    // FREE USERS HAVE LIMITS
+    if (!isPro && history.length >= FREE_HISTORY_LIMIT) {
+      alert("Upgrade to Pro for unlimited signals.");
+      return;
+    }
+
     const result = evaluateSignal(input);
     setLatest(result);
     setHistory([result, ...history]);
     setInput("");
   }
 
-  // ✅ STRIPE CHECKOUT HANDLER — FULL
+  // STRIPE CHECKOUT
   async function handleUpgrade() {
     setLoadingUpgrade(true);
 
@@ -182,7 +225,7 @@ export default function DashboardPage() {
                 </div>
               ))}
 
-              {history.length > FREE_HISTORY_LIMIT && (
+              {history.length > FREE_HISTORY_LIMIT && !isPro && (
                 <div className="border border-dashed border-gray-700 rounded-lg p-5 text-gray-400">
                   <p className="mb-2">
                     🔒 Unlock full decision history with SignalForge Pro
@@ -201,24 +244,26 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* UPGRADE CARD */}
-      <div className="max-w-3xl w-full border border-green-500 rounded-xl p-8 text-center">
-        <h3 className="text-2xl font-bold mb-3 text-green-400">
-          SignalForge Pro — $29/month
-        </h3>
-        <ul className="text-gray-300 mb-6 space-y-1">
-          <li>✔ Unlimited signals</li>
-          <li>✔ Full decision history</li>
-          <li>✔ Clear BUILD / WATCH / KILL results</li>
-        </ul>
-        <button
-          onClick={handleUpgrade}
-          disabled={loadingUpgrade}
-          className="bg-green-500 hover:bg-green-600 text-black font-semibold px-8 py-3 rounded-lg disabled:opacity-60"
-        >
-          {loadingUpgrade ? "Redirecting…" : "Upgrade to Pro →"}
-        </button>
-      </div>
+      {/* UPGRADE CARD — HIDDEN FOR PRO USERS */}
+      {!isPro && (
+        <div className="max-w-3xl w-full border border-green-500 rounded-xl p-8 text-center">
+          <h3 className="text-2xl font-bold mb-3 text-green-400">
+            SignalForge Pro — $29/month
+          </h3>
+          <ul className="text-gray-300 mb-6 space-y-1">
+            <li>✔ Unlimited signals</li>
+            <li>✔ Full decision history</li>
+            <li>✔ Clear BUILD / WATCH / KILL results</li>
+          </ul>
+          <button
+            onClick={handleUpgrade}
+            disabled={loadingUpgrade}
+            className="bg-green-500 hover:bg-green-600 text-black font-semibold px-8 py-3 rounded-lg disabled:opacity-60"
+          >
+            {loadingUpgrade ? "Redirecting…" : "Upgrade to Pro →"}
+          </button>
+        </div>
+      )}
     </main>
   );
 }
