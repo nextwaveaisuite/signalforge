@@ -35,11 +35,11 @@ export default function DashboardPage() {
     loadPlan();
   }, []);
 
-  // ❌ FREE users can't evaluate more than 3 signals
+  // 🔥 NEW: Limit logic for free users
   const limitReached = plan === "free" && history.length >= FREE_HISTORY_LIMIT;
 
   // -------------------------------------------------------
-  // TEMP deterministic evaluator (kept exactly the same)
+  // TEMP deterministic evaluator (unchanged)
   // -------------------------------------------------------
   function evaluateSignal(text: string): Result {
     const t = text.toLowerCase();
@@ -76,7 +76,7 @@ export default function DashboardPage() {
   }
 
   function handleSubmit() {
-    if (limitReached) return; // ⛔ block free user after 3 signals
+    if (limitReached) return; // ⛔ Prevent free users from exceeding limit
     if (!input.trim()) return;
 
     const result = evaluateSignal(input);
@@ -86,7 +86,7 @@ export default function DashboardPage() {
   }
 
   // -------------------------------------------------------
-  // STRIPE CHECKOUT HANDLER
+  // STRIPE CHECKOUT HANDLER (unchanged)
   // -------------------------------------------------------
   async function handleUpgrade() {
     setLoadingUpgrade(true);
@@ -202,6 +202,7 @@ export default function DashboardPage() {
                 </div>
               ))}
 
+              {/* 🔥 FREE USERS SEE LOCKED HISTORY BLOCK */}
               {history.length > FREE_HISTORY_LIMIT && plan === "free" && (
                 <div className="border border-dashed border-gray-700 rounded-lg p-5 text-gray-400">
                   <p className="mb-2">🔒 Unlock full decision history with SignalForge Pro</p>
@@ -221,7 +222,7 @@ export default function DashboardPage() {
 
       {/* UPGRADE CARD */}
       <div className="max-w-3xl w-full border border-green-500 rounded-xl p-8 text-center">
-        <h3 className="text-2xl font-bold mb-3 text-green-400">SignalForge Pro — $29/month</h3>
+        <h3 className="text-22xl font-bold mb-3 text-green-400">SignalForge Pro — $29/month</h3>
         <ul className="text-gray-300 mb-6 space-y-1">
           <li>✔ Unlimited signals</li>
           <li>✔ Full decision history</li>
