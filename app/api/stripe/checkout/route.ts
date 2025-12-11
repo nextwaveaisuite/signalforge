@@ -1,10 +1,7 @@
-import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-export const dynamic = "force-dynamic";
-
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-06-20",
+  apiVersion: "2023-10-16",
 });
 
 export async function POST() {
@@ -13,19 +10,19 @@ export async function POST() {
       mode: "subscription",
       line_items: [
         {
-          price: process.env.STRIPE_PRO_PRICE_ID,
+          price: process.env.STRIPE_PRICE_ID!,
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_URL}/dashboard?upgrade=success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_URL}/dashboard?upgrade=cancelled`,
+      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?success=1`,
+      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?canceled=1`,
     });
 
-    return NextResponse.json({ url: session.url });
-  } catch (err) {
-    console.error("Checkout Error:", err);
-    return NextResponse.json(
-      { error: "Checkout failed" },
+    return Response.json({ url: session.url });
+  } catch (err: any) {
+    console.error("Checkout error:", err);
+    return Response.json(
+      { error: "Unable to create checkout session" },
       { status: 500 }
     );
   }
