@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -9,8 +10,8 @@ type Result = {
   score: number;
   reason: string[];
   raw: string;
-  id: string;          // 🔥 unique id for delete feature
-  timestamp: number;   // 🔥 store time
+  id: string;
+  timestamp: number;
 };
 
 const FREE_HISTORY_LIMIT = 3;
@@ -25,15 +26,12 @@ export default function DashboardPage() {
   const [plan, setPlan] = useState<"free" | "pro">("free");
 
   // -------------------------------------------
-  // 🔥 Load plan
+  // Load Plan
   // -------------------------------------------
   useEffect(() => {
     async function loadPlan() {
       try {
-        const res = await fetch("/api/user/plan", {
-          cache: "no-store",
-          method: "GET",
-        });
+        const res = await fetch("/api/user/plan", { cache: "no-store" });
         const data = await res.json();
         setPlan(data.plan || "free");
       } catch {
@@ -44,27 +42,21 @@ export default function DashboardPage() {
   }, []);
 
   // -------------------------------------------
-  // 🔥 Load history from localStorage
+  // Load History
   // -------------------------------------------
   useEffect(() => {
-    const stored = localStorage.getItem("signalforge-history");
-    if (stored) {
-      setHistory(JSON.parse(stored));
-    }
+    const saved = localStorage.getItem("signalforge-history");
+    if (saved) setHistory(JSON.parse(saved));
   }, []);
 
-  // -------------------------------------------
-  // 🔥 Save history automatically
-  // -------------------------------------------
   useEffect(() => {
     localStorage.setItem("signalforge-history", JSON.stringify(history));
   }, [history]);
 
-  const limitReached =
-    plan === "free" && history.length >= FREE_HISTORY_LIMIT;
+  const limitReached = plan === "free" && history.length >= FREE_HISTORY_LIMIT;
 
   // -------------------------------------------
-  // Evaluator logic
+  // Evaluator Logic
   // -------------------------------------------
   function evaluateSignal(text: string): Result {
     const t = text.toLowerCase();
@@ -100,19 +92,15 @@ export default function DashboardPage() {
       verdict: "KILL",
       score: 20,
       raw: text,
-      reason: [
-        "Weak urgency",
-        "No clear buyer intent",
-        "Low willingness to pay",
-      ],
+      reason: ["Weak urgency", "No clear buyer intent", "Low willingness to pay"],
       id: crypto.randomUUID(),
       timestamp: Date.now(),
     };
   }
 
   function handleSubmit() {
-    if (limitReached) return;
     if (!input.trim()) return;
+    if (limitReached) return;
 
     const result = evaluateSignal(input);
     setLatest(result);
@@ -121,15 +109,14 @@ export default function DashboardPage() {
   }
 
   // -------------------------------------------
-  // 🔥 Delete a single history entry
+  // Delete Entry
   // -------------------------------------------
   function deleteEntry(id: string) {
-    const updated = history.filter((item) => item.id !== id);
-    setHistory(updated);
+    setHistory(history.filter((item) => item.id !== id));
   }
 
   // -------------------------------------------
-  // 🔥 Upgrade redirect
+  // Handle Upgrade
   // -------------------------------------------
   async function handleUpgrade() {
     setLoadingUpgrade(true);
@@ -137,40 +124,47 @@ export default function DashboardPage() {
     try {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
       });
 
       const data = await res.json();
-
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert("Checkout failed.");
-      }
+      if (data.url) window.location.href = data.url;
     } finally {
       setLoadingUpgrade(false);
     }
   }
 
+  // -------------------------------------------
+  // UI OUTPUT
+  // -------------------------------------------
   return (
-    <main className="min-h-screen bg-black text-white flex flex-col items-center px-6 py-16">
+    <main className="min-h-screen bg-black text-white px-6 py-10 flex flex-col items-center">
+
+      {/* BACK BUTTON */}
+      <div className="w-full max-w-3xl mb-8">
+        <Link 
+          href="/"
+          className="text-gray-400 hover:text-green-400 transition text-sm"
+        >
+          ← Back to Home
+        </Link>
+      </div>
 
       {/* HEADER */}
       <div className="text-center mb-10 max-w-3xl">
-        <h1 className="text-4xl font-extrabold mb-2">
+        <h1 className="text-4xl font-extrabold mb-3">
           <span className="text-white">Signal</span>
-          <span className="text-green-400">Forge</span> Dashboard
+          <span className="text-green-400">Forge</span> Evaluator
         </h1>
-        <p className="text-gray-400">
-          Paste real pain. Get a clear BUILD / WATCH / KILL decision.
+        <p className="text-gray-400 text-lg">
+          Paste any pain point and receive an instant BUILD / WATCH / KILL verdict.
         </p>
       </div>
 
-      {/* INPUT */}
-      <div className="w-full max-w-3xl bg-[#0c0c0c] border border-gray-800 rounded-xl p-6 mb-10">
+      {/* INPUT CARD */}
+      <div className="w-full max-w-3xl bg-[#0c0c0c] border border-gray-800 rounded-xl p-6 mb-10 shadow-xl">
         <textarea
-          className="w-full min-h-[120px] bg-black border border-gray-700 rounded-lg p-4 text-white focus:outline-none focus:border-green-400"
-          placeholder="Describe the raw pain, frustration, or demand…"
+          className="w-full min-h-[140px] bg-black border border-gray-700 rounded-lg p-4 text-white text-lg focus:outline-none focus:border-green-400"
+          placeholder="Describe the pain, frustration, or demand…"
           value={input}
           onChange={(e) => setInput(e.target.value)}
         />
@@ -178,24 +172,22 @@ export default function DashboardPage() {
         <button
           onClick={handleSubmit}
           disabled={limitReached}
-          className={`mt-4 w-full bg-green-500 hover:bg-green-600 text-black font-semibold py-3 rounded-lg ${
+          className={`mt-4 w-full bg-green-500 hover:bg-green-600 text-black font-semibold py-3 text-lg rounded-lg transition ${
             limitReached ? "opacity-40 cursor-not-allowed" : ""
           }`}
         >
-          {limitReached
-            ? "Limit Reached — Upgrade to Continue"
-            : "Evaluate Signal →"}
+          {limitReached ? "Limit reached — Upgrade for unlimited signals" : "Evaluate Signal →"}
         </button>
       </div>
 
       {/* LATEST RESULT */}
       {latest && (
-        <div className="w-full max-w-3xl border border-gray-800 rounded-xl p-6 mb-8">
-          <h2 className="text-xl font-bold text-center mb-3">Latest Result</h2>
+        <div className="w-full max-w-3xl border border-gray-800 bg-[#0c0c0c] rounded-xl p-6 mb-10 shadow-xl">
+          <h2 className="text-2xl font-bold text-center mb-4 text-green-400">Latest Result</h2>
 
           <div className="text-center mb-4">
             <span
-              className={`text-2xl font-extrabold ${
+              className={`text-3xl font-extrabold ${
                 latest.verdict === "BUILD"
                   ? "text-green-400"
                   : latest.verdict === "WATCH"
@@ -207,11 +199,11 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <p className="text-gray-400 italic text-center mb-4">
+          <p className="text-gray-400 italic text-center mb-4 text-lg">
             “{latest.raw}”
           </p>
 
-          <ul className="text-gray-300 text-center space-y-1">
+          <ul className="text-gray-300 text-center space-y-1 text-lg">
             {latest.reason.map((r, i) => (
               <li key={i}>• {r}</li>
             ))}
@@ -219,70 +211,65 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* HISTORY */}
+      {/* HISTORY VIEW */}
       {history.length > 0 && (
         <div className="max-w-3xl w-full text-center mb-16">
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className="text-sm text-gray-400 hover:text-green-400 mb-4"
+            className="text-sm text-gray-400 hover:text-green-400 transition mb-4"
           >
             {showHistory ? "Hide History ▲" : "View History ▼"}
           </button>
 
           {showHistory && (
-            <>
-              {history.map((item, i) => (
+            <div className="space-y-4 mt-4">
+              {history.map((item) => (
                 <div
                   key={item.id}
-                  className="border border-gray-800 rounded-lg p-4 text-sm mb-3 relative"
+                  className="border border-gray-800 bg-[#0c0c0c] rounded-lg p-5 shadow-md text-left relative"
                 >
-                  {/* VERDICT */}
-                  <span
-                    className={`font-semibold ${
-                      item.verdict === "BUILD"
-                        ? "text-green-400"
-                        : item.verdict === "WATCH"
-                        ? "text-yellow-400"
-                        : "text-red-400"
-                    }`}
-                  >
-                    {item.verdict}
-                  </span>{" "}
-                  — Score {item.score}
+                  <div className="flex justify-between items-center mb-2">
+                    <span
+                      className={`font-bold ${
+                        item.verdict === "BUILD"
+                          ? "text-green-400"
+                          : item.verdict === "WATCH"
+                          ? "text-yellow-400"
+                          : "text-red-400"
+                      }`}
+                    >
+                      {item.verdict} — Score {item.score}
+                    </span>
 
-                  {/* RAW TEXT */}
-                  <p className="text-gray-400 italic mt-2 mb-2">
-                    “{item.raw}”
-                  </p>
+                    <button
+                      onClick={() => deleteEntry(item.id)}
+                      className="text-red-400 hover:text-red-500 text-xs underline"
+                    >
+                      Delete
+                    </button>
+                  </div>
 
-                  {/* DELETE BUTTON — styled to match theme */}
-                  <button
-                    onClick={() => deleteEntry(item.id)}
-                    className="text-red-400 hover:text-red-500 text-xs underline"
-                  >
-                    Delete Entry
-                  </button>
+                  <p className="text-gray-400 italic mb-2">“{item.raw}”</p>
                 </div>
               ))}
-            </>
+            </div>
           )}
         </div>
       )}
 
-      {/* UPGRADE CARD */}
-      <div className="max-w-3xl w-full border border-green-500 rounded-xl p-8 text-center">
-        <h3 className="text-2xl font-bold mb-3 text-green-400">
-          SignalForge Pro — $29/month
-        </h3>
-        <ul className="text-gray-300 mb-6 space-y-1">
+      {/* PRO UPGRADE CARD */}
+      <div className="max-w-3xl w-full border border-green-500 rounded-xl p-8 text-center bg-[#0c0c0c] shadow-xl">
+        <h3 className="text-2xl font-bold mb-4 text-green-400">SignalForge Pro — $29/month</h3>
+        <ul className="text-gray-300 mb-6 text-lg space-y-1">
           <li>✔ Unlimited signals</li>
           <li>✔ Full decision history</li>
-          <li>✔ Deeper reasoning breakdowns</li>
+          <li>✔ Deep breakdowns</li>
         </ul>
+
         <button
           onClick={handleUpgrade}
           disabled={loadingUpgrade}
-          className="bg-green-500 hover:bg-green-600 text-black font-semibold px-8 py-3 rounded-lg disabled:opacity-60"
+          className="bg-green-500 hover:bg-green-600 text-black font-semibold px-8 py-3 rounded-lg text-lg transition disabled:opacity-60"
         >
           {loadingUpgrade ? "Redirecting…" : "Upgrade to Pro →"}
         </button>
