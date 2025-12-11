@@ -1,5 +1,8 @@
+// app/api/stripe/checkout/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+
+export const runtime = "nodejs";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16",
@@ -20,7 +23,9 @@ export async function POST() {
       cancel_url: "https://signal.nextwaveaisuite.com/pricing",
     });
 
-    return NextResponse.json({ url: session.url });
+    // 🔥 MAGIC LINE — redirect instead of JSON
+    return NextResponse.redirect(session.url!, 303);
+
   } catch (error) {
     console.error("Checkout error:", error);
     return NextResponse.json(
