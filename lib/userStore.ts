@@ -1,30 +1,32 @@
 import fs from "fs";
 import path from "path";
 
-const filePath = path.join(process.cwd(), "data", "users.json");
+const DATA_PATH = path.join(process.cwd(), "data/users.json");
 
-// Ensure file exists
-export function ensureUserStore() {
-  if (!fs.existsSync(filePath)) {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
-    fs.writeFileSync(filePath, JSON.stringify({ users: {} }, null, 2));
+// Load the JSON
+function loadData() {
+  try {
+    const raw = fs.readFileSync(DATA_PATH, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return { users: {} };
   }
 }
 
-export function setUserPlan(customerId: string, plan: "free" | "pro") {
-  ensureUserStore();
-  const raw = fs.readFileSync(filePath, "utf8");
-  const json = JSON.parse(raw);
-
-  json.users[customerId] = { plan };
-
-  fs.writeFileSync(filePath, JSON.stringify(json, null, 2));
+// Save the JSON
+function saveData(data: any) {
+  fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2));
 }
 
+// Get plan
 export function getUserPlan(customerId: string): "free" | "pro" {
-  ensureUserStore();
-  const raw = fs.readFileSync(filePath, "utf8");
-  const json = JSON.parse(raw);
+  const data = loadData();
+  return data.users?.[customerId]?.plan || "free";
+}
 
-  return json.users[customerId]?.plan ?? "free";
+// Set plan
+export function setUserPlan(customerId: string, plan: "free" | "pro") {
+  const data = loadData();
+  data.users[customerId] = { plan };
+  saveData(data);
 }
