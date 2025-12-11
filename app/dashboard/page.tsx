@@ -18,10 +18,10 @@ export default function DashboardPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [loadingUpgrade, setLoadingUpgrade] = useState(false);
 
-  // 🔥 NEW: Track user plan
+  // 🔥 Track user plan
   const [plan, setPlan] = useState<"free" | "pro">("free");
 
-  // 🔥 NEW: Fetch user plan on load
+  // 🔥 Fetch user plan
   useEffect(() => {
     async function loadPlan() {
       try {
@@ -35,11 +35,11 @@ export default function DashboardPage() {
     loadPlan();
   }, []);
 
-  // 🔥 NEW: Limit logic for free users
+  // ❌ FREE users can't evaluate more than 3 signals
   const limitReached = plan === "free" && history.length >= FREE_HISTORY_LIMIT;
 
   // -------------------------------------------------------
-  // TEMP deterministic evaluator (unchanged)
+  // Existing evaluator (unchanged)
   // -------------------------------------------------------
   function evaluateSignal(text: string): Result {
     const t = text.toLowerCase();
@@ -76,7 +76,7 @@ export default function DashboardPage() {
   }
 
   function handleSubmit() {
-    if (limitReached) return; // ⛔ Prevent free users from exceeding limit
+    if (limitReached) return;
     if (!input.trim()) return;
 
     const result = evaluateSignal(input);
@@ -86,9 +86,10 @@ export default function DashboardPage() {
   }
 
   // -------------------------------------------------------
-  // STRIPE CHECKOUT HANDLER (unchanged)
+  // ⭐ FIXED STRIPE CHECKOUT HANDLER (prevents 404 forever)
   // -------------------------------------------------------
-  async function handleUpgrade() {
+  async function handleUpgrade(e?: any) {
+    if (e) e.preventDefault(); // ⛔ STOP any default navigation
     setLoadingUpgrade(true);
 
     try {
@@ -97,8 +98,13 @@ export default function DashboardPage() {
       });
 
       const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    } catch {
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert("Checkout error: No URL returned.");
+      }
+    } catch (err) {
+      console.error("UPGRADE ERROR:", err);
       alert("Unable to start checkout. Please try again.");
     } finally {
       setLoadingUpgrade(false);
@@ -127,8 +133,8 @@ export default function DashboardPage() {
           onChange={(e) => setInput(e.target.value)}
         />
 
-        {/* 🔥 Button disables after limit reached — NO DESIGN CHANGE */}
         <button
+          type="button"
           onClick={handleSubmit}
           disabled={limitReached}
           className={`mt-4 w-full bg-green-500 hover:bg-green-600 text-black font-semibold py-3 rounded-lg ${
@@ -174,6 +180,7 @@ export default function DashboardPage() {
       {history.length > 0 && (
         <div className="max-w-3xl w-full text-center mb-16">
           <button
+            type="button"
             onClick={() => setShowHistory(!showHistory)}
             className="text-sm text-gray-400 hover:text-green-400 mb-4"
           >
@@ -202,12 +209,13 @@ export default function DashboardPage() {
                 </div>
               ))}
 
-              {/* 🔥 FREE USERS SEE LOCKED HISTORY BLOCK */}
               {history.length > FREE_HISTORY_LIMIT && plan === "free" && (
                 <div className="border border-dashed border-gray-700 rounded-lg p-5 text-gray-400">
                   <p className="mb-2">🔒 Unlock full decision history with SignalForge Pro</p>
+
                   <button
-                    onClick={handleUpgrade}
+                    type="button"
+                    onClick={(e) => handleUpgrade(e)}
                     disabled={loadingUpgrade}
                     className="text-green-400 hover:underline font-semibold"
                   >
@@ -222,14 +230,16 @@ export default function DashboardPage() {
 
       {/* UPGRADE CARD */}
       <div className="max-w-3xl w-full border border-green-500 rounded-xl p-8 text-center">
-        <h3 className="text-22xl font-bold mb-3 text-green-400">SignalForge Pro — $29/month</h3>
+        <h3 className="text-2xl font-bold mb-3 text-green-400">SignalForge Pro — $29/month</h3>
         <ul className="text-gray-300 mb-6 space-y-1">
           <li>✔ Unlimited signals</li>
           <li>✔ Full decision history</li>
           <li>✔ Clear BUILD / WATCH / KILL results</li>
         </ul>
+
         <button
-          onClick={handleUpgrade}
+          type="button"
+          onClick={(e) => handleUpgrade(e)}
           disabled={loadingUpgrade}
           className="bg-green-500 hover:bg-green-600 text-black font-semibold px-8 py-3 rounded-lg disabled:opacity-60"
         >
