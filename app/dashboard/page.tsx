@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
 
 type Result = {
   verdict: "BUILD" | "WATCH" | "KILL";
@@ -19,42 +18,29 @@ export default function DashboardPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [loadingUpgrade, setLoadingUpgrade] = useState(false);
 
-  // NEW: Pro status
-  const [isPro, setIsPro] = useState(false);
-  const [loadingUserStatus, setLoadingUserStatus] = useState(true);
+  // 🔥 NEW: Track user plan
+  const [plan, setPlan] = useState<"free" | "pro">("free");
 
-  // 🔥 Load Supabase user + Pro status on mount
+  // 🔥 NEW: Fetch user plan on load
   useEffect(() => {
-    async function loadStatus() {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setIsPro(false);
-        setLoadingUserStatus(false);
-        return;
+    async function loadPlan() {
+      try {
+        const res = await fetch("/api/user/plan");
+        const data = await res.json();
+        setPlan(data.plan || "free");
+      } catch {
+        setPlan("free");
       }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_pro")
-        .eq("id", user.id)
-        .single();
-
-      setIsPro(profile?.is_pro === true);
-      setLoadingUserStatus(false);
     }
-
-    loadStatus();
+    loadPlan();
   }, []);
 
-  // TEMP deterministic evaluation (UX only)
+  // ❌ FREE users can't evaluate more than 3 signals
+  const limitReached = plan === "free" && history.length >= FREE_HISTORY_LIMIT;
+
+  // -------------------------------------------------------
+  // TEMP deterministic evaluator (kept exactly the same)
+  // -------------------------------------------------------
   function evaluateSignal(text: string): Result {
     const t = text.toLowerCase();
 
@@ -77,11 +63,7 @@ export default function DashboardPage() {
         verdict: "WATCH",
         score: 60,
         raw: text,
-        reason: [
-          "Real pain",
-          "Low urgency",
-          "Existing solutions acceptable",
-        ],
+        reason: ["Real pain", "Low urgency", "Existing solutions acceptable"],
       };
     }
 
@@ -89,22 +71,13 @@ export default function DashboardPage() {
       verdict: "KILL",
       score: 20,
       raw: text,
-      reason: [
-        "Weak urgency",
-        "No clear buyer intent",
-        "Low willingness to pay",
-      ],
+      reason: ["Weak urgency", "No clear buyer intent", "Low willingness to pay"],
     };
   }
 
   function handleSubmit() {
+    if (limitReached) return; // ⛔ block free user after 3 signals
     if (!input.trim()) return;
-
-    // FREE USERS HAVE LIMITS
-    if (!isPro && history.length >= FREE_HISTORY_LIMIT) {
-      alert("Upgrade to Pro for unlimited signals.");
-      return;
-    }
 
     const result = evaluateSignal(input);
     setLatest(result);
@@ -112,7 +85,9 @@ export default function DashboardPage() {
     setInput("");
   }
 
-  // STRIPE CHECKOUT
+  // -------------------------------------------------------
+  // STRIPE CHECKOUT HANDLER
+  // -------------------------------------------------------
   async function handleUpgrade() {
     setLoadingUpgrade(true);
 
@@ -122,10 +97,8 @@ export default function DashboardPage() {
       });
 
       const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    } catch (err) {
+      if (data.url) window.location.href = data.url;
+    } catch {
       alert("Unable to start checkout. Please try again.");
     } finally {
       setLoadingUpgrade(false);
@@ -154,11 +127,15 @@ export default function DashboardPage() {
           onChange={(e) => setInput(e.target.value)}
         />
 
+        {/* 🔥 Button disables after limit reached — NO DESIGN CHANGE */}
         <button
           onClick={handleSubmit}
-          className="mt-4 w-full bg-green-500 hover:bg-green-600 text-black font-semibold py-3 rounded-lg"
+          disabled={limitReached}
+          className={`mt-4 w-full bg-green-500 hover:bg-green-600 text-black font-semibold py-3 rounded-lg ${
+            limitReached ? "opacity-40 cursor-not-allowed" : ""
+          }`}
         >
-          Evaluate Signal →
+          {limitReached ? "Limit Reached — Upgrade to Continue" : "Evaluate Signal →"}
         </button>
       </div>
 
@@ -225,11 +202,9 @@ export default function DashboardPage() {
                 </div>
               ))}
 
-              {history.length > FREE_HISTORY_LIMIT && !isPro && (
+              {history.length > FREE_HISTORY_LIMIT && plan === "free" && (
                 <div className="border border-dashed border-gray-700 rounded-lg p-5 text-gray-400">
-                  <p className="mb-2">
-                    🔒 Unlock full decision history with SignalForge Pro
-                  </p>
+                  <p className="mb-2">🔒 Unlock full decision history with SignalForge Pro</p>
                   <button
                     onClick={handleUpgrade}
                     disabled={loadingUpgrade}
@@ -244,26 +219,22 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* UPGRADE CARD — HIDDEN FOR PRO USERS */}
-      {!isPro && (
-        <div className="max-w-3xl w-full border border-green-500 rounded-xl p-8 text-center">
-          <h3 className="text-2xl font-bold mb-3 text-green-400">
-            SignalForge Pro — $29/month
-          </h3>
-          <ul className="text-gray-300 mb-6 space-y-1">
-            <li>✔ Unlimited signals</li>
-            <li>✔ Full decision history</li>
-            <li>✔ Clear BUILD / WATCH / KILL results</li>
-          </ul>
-          <button
-            onClick={handleUpgrade}
-            disabled={loadingUpgrade}
-            className="bg-green-500 hover:bg-green-600 text-black font-semibold px-8 py-3 rounded-lg disabled:opacity-60"
-          >
-            {loadingUpgrade ? "Redirecting…" : "Upgrade to Pro →"}
-          </button>
-        </div>
-      )}
+      {/* UPGRADE CARD */}
+      <div className="max-w-3xl w-full border border-green-500 rounded-xl p-8 text-center">
+        <h3 className="text-2xl font-bold mb-3 text-green-400">SignalForge Pro — $29/month</h3>
+        <ul className="text-gray-300 mb-6 space-y-1">
+          <li>✔ Unlimited signals</li>
+          <li>✔ Full decision history</li>
+          <li>✔ Clear BUILD / WATCH / KILL results</li>
+        </ul>
+        <button
+          onClick={handleUpgrade}
+          disabled={loadingUpgrade}
+          className="bg-green-500 hover:bg-green-600 text-black font-semibold px-8 py-3 rounded-lg disabled:opacity-60"
+        >
+          {loadingUpgrade ? "Redirecting…" : "Upgrade to Pro →"}
+        </button>
+      </div>
     </main>
   );
 }
