@@ -1,86 +1,83 @@
-import Stripe from "stripe";
+export const config = {
+  api: {
+    bodyParser: false, // REQUIRED for Stripe signature verification
+  },
+};
+
 import { NextRequest, NextResponse } from "next/server";
+import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
+// Stripe client
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16",
 });
 
-export const runtime = "nodejs"; // Required for raw body
+// Initialize Supabase (service role key required)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+async function buffer(readable: ReadableStream<Uint8Array>) {
+  const chunks: Uint8Array[] = [];
+  const reader = readable.getReader();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) chunks.push(value);
+  }
+
+  return Buffer.concat(chunks);
+}
 
 export async function POST(req: NextRequest) {
-  const body = await req.text();
-  const sig = req.headers.get("stripe-signature");
-
-  if (!sig) {
-    return NextResponse.json({ error: "Missing Stripe signature" }, { status: 400 });
-  }
-
-  let event;
-
   try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
+    const rawBody = await buffer(req.body!);
+
+    const sig = req.headers.get("stripe-signature")!;
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+
+    let event;
+
+    try {
+      event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+    } catch (err: any) {
+      console.error("❌ Webhook signature verification failed:", err.message);
+      return NextResponse.json(
+        { error: "Invalid signature" },
+        { status: 400 }
+      );
+    }
+
+    // 🟢 Handle checkout session completion
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object as any;
+      const userEmail = session.customer_details?.email;
+
+      console.log("Checkout completed for:", userEmail);
+
+      if (userEmail) {
+        const { error } = await supabase
+          .from("profiles")
+          .update({ plan: "pro" })
+          .eq("email", userEmail);
+
+        if (error) {
+          console.error("Supabase update error:", error);
+        } else {
+          console.log(`🔐 User upgraded to Pro: ${userEmail}`);
+        }
+      }
+    }
+
+    return NextResponse.json({ received: true }, { status: 200 });
+  } catch (err) {
+    console.error("❌ Webhook Handler Error:", err);
+    return NextResponse.json(
+      { error: "Webhook error" },
+      { status: 500 }
     );
-  } catch (err: any) {
-    console.error("⚠️ Webhook signature failed:", err.message);
-    return NextResponse.json({ error: `Webhook error: ${err.message}` }, { status: 400 });
   }
-
-  // CONNECT TO SUPABASE
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY! // must be service role key
-  );
-
-  // HANDLE SUBSCRIPTION ACTIVATED
-  if (event.type === "customer.subscription.created" ||
-      event.type === "customer.subscription.updated") {
-
-    const subscription = event.data.object as any;
-    const customerId = subscription.customer;
-
-    console.log("📌 Subscription webhook received:", subscription.status);
-
-    // LOOKUP user with matching Stripe customer_id
-    const { data: user } = await supabase
-      .from("users")
-      .select("*")
-      .eq("stripe_customer_id", customerId)
-      .single();
-
-    if (user) {
-      await supabase
-        .from("users")
-        .update({ plan: "pro" })
-        .eq("id", user.id);
-
-      console.log("🎉 User upgraded to PRO:", user.email);
-    }
-  }
-
-  // HANDLE SUBSCRIPTION CANCELLED
-  if (event.type === "customer.subscription.deleted") {
-    const subscription = event.data.object as any;
-    const customerId = subscription.customer;
-
-    const { data: user } = await supabase
-      .from("users")
-      .select("*")
-      .eq("stripe_customer_id", customerId)
-      .single();
-
-    if (user) {
-      await supabase
-        .from("users")
-        .update({ plan: "free" })
-        .eq("id", user.id);
-
-      console.log("⚠️ Subscription canceled — user downgraded:", user.email);
-    }
-  }
-
-  return NextResponse.json({ received: true });
 }
