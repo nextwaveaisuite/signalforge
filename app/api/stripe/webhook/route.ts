@@ -1,36 +1,85 @@
 import Stripe from "stripe";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16",
 });
 
-// NEW: required by Next.js 14 for streaming body
-export const dynamic = "force-dynamic";
+export const runtime = "nodejs"; // Required for raw body
 
-export async function POST(req: Request) {
-  const signature = req.headers.get("stripe-signature");
+export async function POST(req: NextRequest) {
+  const body = await req.text();
+  const sig = req.headers.get("stripe-signature");
 
-  if (!signature) {
-    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+  if (!sig) {
+    return NextResponse.json({ error: "Missing Stripe signature" }, { status: 400 });
   }
 
-  const rawBody = await req.text();
-
   let event;
+
   try {
     event = stripe.webhooks.constructEvent(
-      rawBody,
-      signature,
+      body,
+      sig,
       process.env.STRIPE_WEBHOOK_SECRET!
     );
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 400 });
+    console.error("⚠️ Webhook signature failed:", err.message);
+    return NextResponse.json({ error: `Webhook error: ${err.message}` }, { status: 400 });
   }
 
-  if (event.type === "checkout.session.completed") {
-    console.log("✔ PRO user payment confirmed");
-    // Later you add user upgrade logic here (no Supabase needed)
+  // CONNECT TO SUPABASE
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY! // must be service role key
+  );
+
+  // HANDLE SUBSCRIPTION ACTIVATED
+  if (event.type === "customer.subscription.created" ||
+      event.type === "customer.subscription.updated") {
+
+    const subscription = event.data.object as any;
+    const customerId = subscription.customer;
+
+    console.log("📌 Subscription webhook received:", subscription.status);
+
+    // LOOKUP user with matching Stripe customer_id
+    const { data: user } = await supabase
+      .from("users")
+      .select("*")
+      .eq("stripe_customer_id", customerId)
+      .single();
+
+    if (user) {
+      await supabase
+        .from("users")
+        .update({ plan: "pro" })
+        .eq("id", user.id);
+
+      console.log("🎉 User upgraded to PRO:", user.email);
+    }
+  }
+
+  // HANDLE SUBSCRIPTION CANCELLED
+  if (event.type === "customer.subscription.deleted") {
+    const subscription = event.data.object as any;
+    const customerId = subscription.customer;
+
+    const { data: user } = await supabase
+      .from("users")
+      .select("*")
+      .eq("stripe_customer_id", customerId)
+      .single();
+
+    if (user) {
+      await supabase
+        .from("users")
+        .update({ plan: "free" })
+        .eq("id", user.id);
+
+      console.log("⚠️ Subscription canceled — user downgraded:", user.email);
+    }
   }
 
   return NextResponse.json({ received: true });
