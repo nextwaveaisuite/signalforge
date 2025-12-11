@@ -10,6 +10,7 @@ type Result = {
   score: number;
   reason: string[];
   raw: string;
+  id: string; // Added for delete feature
 };
 
 const FREE_HISTORY_LIMIT = 3;
@@ -23,7 +24,9 @@ export default function DashboardPage() {
 
   const [plan, setPlan] = useState<"free" | "pro">("free");
 
-  // 🔥 Always load fresh plan
+  // -------------------------------------------
+  // Load plan
+  // -------------------------------------------
   useEffect(() => {
     async function loadPlan() {
       try {
@@ -40,15 +43,32 @@ export default function DashboardPage() {
     loadPlan();
   }, []);
 
+  // -------------------------------------------
+  // Load history from localStorage
+  // -------------------------------------------
+  useEffect(() => {
+    const data = localStorage.getItem("signalforge-history");
+    if (data) setHistory(JSON.parse(data));
+  }, []);
+
+  // Save history
+  useEffect(() => {
+    localStorage.setItem("signalforge-history", JSON.stringify(history));
+  }, [history]);
+
   const limitReached =
     plan === "free" && history.length >= FREE_HISTORY_LIMIT;
 
+  // -------------------------------------------
   // Same scoring logic
+  // -------------------------------------------
   function evaluateSignal(text: string): Result {
     const t = text.toLowerCase();
 
+    let result: Result;
+
     if (t.includes("manual") || t.includes("slow")) {
-      return {
+      result = {
         verdict: "BUILD",
         score: 85,
         raw: text,
@@ -58,28 +78,31 @@ export default function DashboardPage() {
           "Automation-ready",
           "Commercial relevance",
         ],
+        id: crypto.randomUUID(),
       };
-    }
-
-    if (t.includes("wish") || t.includes("better")) {
-      return {
+    } else if (t.includes("wish") || t.includes("better")) {
+      result = {
         verdict: "WATCH",
         score: 60,
         raw: text,
         reason: ["Real pain", "Low urgency", "Existing solutions acceptable"],
+        id: crypto.randomUUID(),
+      };
+    } else {
+      result = {
+        verdict: "KILL",
+        score: 20,
+        raw: text,
+        reason: [
+          "Weak urgency",
+          "No clear buyer intent",
+          "Low willingness to pay",
+        ],
+        id: crypto.randomUUID(),
       };
     }
 
-    return {
-      verdict: "KILL",
-      score: 20,
-      raw: text,
-      reason: [
-        "Weak urgency",
-        "No clear buyer intent",
-        "Low willingness to pay",
-      ],
-    };
+    return result;
   }
 
   function handleSubmit() {
@@ -92,7 +115,16 @@ export default function DashboardPage() {
     setInput("");
   }
 
-  // 🔥 Stripe checkout — guaranteed working
+  // -------------------------------------------
+  // Delete entry feature
+  // -------------------------------------------
+  function deleteEntry(id: string) {
+    setHistory(history.filter((h) => h.id !== id));
+  }
+
+  // -------------------------------------------
+  // Stripe Upgrade
+  // -------------------------------------------
   async function handleUpgrade() {
     setLoadingUpgrade(true);
 
@@ -103,23 +135,8 @@ export default function DashboardPage() {
         cache: "no-store",
       });
 
-      if (!res.ok) {
-        console.error("Bad checkout response:", await res.text());
-        alert("Checkout failed. Try again.");
-        return;
-      }
-
       const data = await res.json();
-      if (!data.url) {
-        console.error("Stripe missing URL:", data);
-        alert("Stripe did not return a redirect URL.");
-        return;
-      }
-
-      window.location.href = data.url;
-    } catch (err) {
-      console.error("Checkout error:", err);
-      alert("Unable to start checkout.");
+      if (data.url) window.location.href = data.url;
     } finally {
       setLoadingUpgrade(false);
     }
@@ -129,14 +146,31 @@ export default function DashboardPage() {
     <main
       style={{
         minHeight: "100vh",
-        backgroundColor: "#000000",
-        color: "#ffffff",
+        backgroundColor: "#000",
+        color: "#fff",
+        padding: "60px 20px",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        padding: "60px 20px",
       }}
     >
+
+      {/* 🔙 BACK BUTTON — matches your theme */}
+      <button
+        onClick={() => (window.location.href = "/")}
+        style={{
+          alignSelf: "flex-start",
+          marginBottom: "20px",
+          background: "none",
+          color: "#9ca3af",
+          border: "none",
+          fontSize: "0.9rem",
+          cursor: "pointer",
+        }}
+      >
+        ← Back to Home
+      </button>
+
       {/* HEADER */}
       <div style={{ textAlign: "center", marginBottom: "40px" }}>
         <h1
@@ -158,7 +192,7 @@ export default function DashboardPage() {
       <div
         style={{
           width: "100%",
-          maxWidth: "800px",
+          maxWidth: "780px",
           background: "#0a0a0a",
           border: "1px solid #1f2937",
           borderRadius: "14px",
@@ -210,7 +244,7 @@ export default function DashboardPage() {
         <div
           style={{
             width: "100%",
-            maxWidth: "800px",
+            maxWidth: "780px",
             background: "#0a0a0a",
             border: "1px solid #333",
             padding: "28px",
@@ -273,12 +307,12 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* HISTORY */}
+      {/* HISTORY SECTION — with delete option */}
       {history.length > 0 && (
         <div
           style={{
             width: "100%",
-            maxWidth: "800px",
+            maxWidth: "780px",
             textAlign: "center",
             marginBottom: "40px",
           }}
@@ -297,20 +331,20 @@ export default function DashboardPage() {
           </button>
 
           {showHistory &&
-            history.slice(0, FREE_HISTORY_LIMIT).map((item, i) => (
+            history.map((item) => (
               <div
-                key={i}
+                key={item.id}
                 style={{
                   border: "1px solid #1f2937",
                   padding: "14px",
                   borderRadius: "10px",
                   marginBottom: "10px",
                   color: "#d1d5db",
+                  textAlign: "left",
                 }}
               >
-                <span
+                <strong
                   style={{
-                    fontWeight: 700,
                     color:
                       item.verdict === "BUILD"
                         ? "#22c55e"
@@ -320,45 +354,35 @@ export default function DashboardPage() {
                   }}
                 >
                   {item.verdict}
-                </span>{" "}
+                </strong>{" "}
                 — Score {item.score}
+
+                <p style={{ marginTop: "6px", fontStyle: "italic", color: "#9ca3af" }}>
+                  “{item.raw}”
+                </p>
+
+                <button
+                  onClick={() => deleteEntry(item.id)}
+                  style={{
+                    color: "#ef4444",
+                    fontSize: "0.8rem",
+                    marginTop: "8px",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                  }}
+                >
+                  Delete Entry
+                </button>
               </div>
             ))}
-
-          {history.length > FREE_HISTORY_LIMIT && plan === "free" && (
-            <div
-              style={{
-                border: "1px dashed #444",
-                padding: "20px",
-                borderRadius: "12px",
-                color: "#9ca3af",
-              }}
-            >
-              <p style={{ marginBottom: "10px" }}>
-                🔒 Unlock full decision history with SignalForge Pro
-              </p>
-              <button
-                onClick={handleUpgrade}
-                disabled={loadingUpgrade}
-                style={{
-                  background: "none",
-                  color: "#22c55e",
-                  textDecoration: "underline",
-                  cursor: "pointer",
-                  border: "none",
-                }}
-              >
-                Upgrade to Pro →
-              </button>
-            </div>
-          )}
         </div>
       )}
 
-      {/* FINAL UPGRADE CARD — HOMEPAGE STYLE */}
+      {/* UPGRADE / BUY BUTTON */}
       <div
         style={{
-          marginTop: "20px",
           width: "100%",
           maxWidth: "700px",
           background: "#0f0f0f",
@@ -366,6 +390,7 @@ export default function DashboardPage() {
           borderRadius: "16px",
           padding: "32px",
           textAlign: "center",
+          marginTop: "20px",
         }}
       >
         <h3
@@ -387,25 +412,8 @@ export default function DashboardPage() {
             lineHeight: "1.6",
           }}
         >
-          Unlock unlimited signals, full history, and deeper breakdowns.
+          Unlock unlimited signals, deeper breakdowns, and full decision history.
         </p>
-
-        <ul
-          style={{
-            listStyle: "none",
-            padding: 0,
-            margin: "0 0 28px 0",
-            color: "#9ca3af",
-            fontSize: "0.95rem",
-            lineHeight: "1.7",
-          }}
-        >
-          <li>✔ Unlimited Signals</li>
-          <li>✔ Full Decision History</li>
-          <li>✔ Deeper Reasoning</li>
-          <li>✔ BUILD / WATCH / KILL Verdicts</li>
-          <li>✔ Faster Scoring Engine</li>
-        </ul>
 
         <button
           onClick={handleUpgrade}
