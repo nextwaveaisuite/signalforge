@@ -1,30 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
+import { stripe } from "@/lib/stripe";
+import { createClient } from "@supabase/supabase-js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2023-10-16",
-});
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 export async function POST(req: NextRequest) {
-  const body = await req.text();
   const sig = req.headers.get("stripe-signature")!;
+  const rawBody = await req.text();
 
-  let event: Stripe.Event;
+  let event;
 
   try {
     event = stripe.webhooks.constructEvent(
-      body,
+      rawBody,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET!
     );
-  } catch (err) {
-    return NextResponse.json({ error: "Webhook error" }, { status: 400 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 400 });
   }
 
   if (event.type === "checkout.session.completed") {
-    // ✅ Later: mark user as PRO
-    console.log("✅ Stripe checkout completed");
+    const session = event.data.object as any;
+    const userId = session.metadata.userId;
+    const customerId = session.customer;
+
+    // update profiles table
+    await supabase
+      .from("profiles")
+      .upsert({
+        id: userId,
+        stripe_customer_id: customerId,
+        is_pro: true,
+      })
+      .select();
+
+    return NextResponse.json({ received: true });
   }
 
-  return NextResponse.json({ received: true });
+  return NextResponse.json({ status: "ignored" });
 }
