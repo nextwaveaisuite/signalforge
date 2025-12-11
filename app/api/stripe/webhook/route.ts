@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { setUserPlan } from "@/lib/userStore";
+import fs from "fs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,37 +9,53 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16",
 });
 
-export async function POST(req: NextRequest) {
-  const signature = req.headers.get("stripe-signature");
+const USERS_FILE = process.cwd() + "/data/users.json";
 
-  if (!signature) {
-    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+function loadUsers() {
+  try {
+    return JSON.parse(fs.readFileSync(USERS_FILE, "utf8"));
+  } catch {
+    return { users: {} };
   }
+}
 
-  const body = await req.text();
+function saveUsers(data: any) {
+  fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
+}
 
-  let event;
+export async function POST(req: Request) {
+  const sig = req.headers.get("stripe-signature");
+  const rawBody = await req.text();
+
+  let event: Stripe.Event;
+
   try {
     event = stripe.webhooks.constructEvent(
-      body,
-      signature,
+      rawBody,
+      sig!,
       process.env.STRIPE_WEBHOOK_SECRET!
     );
-  } catch (err: any) {
-    return NextResponse.json(
-      { error: `Webhook signature error: ${err.message}` },
-      { status: 400 }
-    );
+  } catch (err) {
+    console.error("⚠️ Webhook signature verification failed.", err);
+    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  // ✔ Handle checkout success
+  // 🔥 Handle successful subscription
   if (event.type === "checkout.session.completed") {
-    const session = event.data.object as any;
-    const customerId = session.customer;
+    const session = event.data.object as Stripe.Checkout.Session;
 
-    if (customerId) {
-      setUserPlan(customerId, "pro");
+    if (!session.customer) {
+      console.warn("No customer ID in session");
+      return NextResponse.json({ status: "ok" });
     }
+
+    const customerId = session.customer.toString();
+    const data = loadUsers();
+
+    data.users[customerId] = { plan: "pro" };
+    saveUsers(data);
+
+    console.log("🔥 User upgraded:", customerId);
   }
 
   return NextResponse.json({ received: true });
