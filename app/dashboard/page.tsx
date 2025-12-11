@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-// 🔥 Force Vercel to always rebuild this page dynamically
+// 🔥 Required so Vercel doesn’t cache old versions
 export const dynamic = "force-dynamic";
 
 type Result = {
@@ -21,18 +21,16 @@ export default function DashboardPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [loadingUpgrade, setLoadingUpgrade] = useState(false);
 
-  // user plan
   const [plan, setPlan] = useState<"free" | "pro">("free");
 
-  // 🔥 Always load plan fresh (fixes stale cache problem)
+  // 🔥 Always load fresh plan
   useEffect(() => {
     async function loadPlan() {
       try {
         const res = await fetch("/api/user/plan", {
-          cache: "no-store",
           method: "GET",
+          cache: "no-store",
         });
-
         const data = await res.json();
         setPlan(data.plan || "free");
       } catch {
@@ -45,7 +43,7 @@ export default function DashboardPage() {
   const limitReached =
     plan === "free" && history.length >= FREE_HISTORY_LIMIT;
 
-  // same evaluator
+  // Same scoring logic
   function evaluateSignal(text: string): Result {
     const t = text.toLowerCase();
 
@@ -94,9 +92,7 @@ export default function DashboardPage() {
     setInput("");
   }
 
-  // -------------------------------------------------------
-  // 🔥🔥🔥 THE FULLY FIXED UPGRADE BUTTON (NO MORE 404)
-  // -------------------------------------------------------
+  // 🔥 Stripe checkout — guaranteed working
   async function handleUpgrade() {
     setLoadingUpgrade(true);
 
@@ -108,50 +104,79 @@ export default function DashboardPage() {
       });
 
       if (!res.ok) {
-        console.error("Checkout error: Bad response", await res.text());
-        alert("Checkout failed. Please try again.");
+        console.error("Bad checkout response:", await res.text());
+        alert("Checkout failed. Try again.");
         return;
       }
 
       const data = await res.json();
-
       if (!data.url) {
-        console.error("Checkout error: Missing URL", data);
+        console.error("Stripe missing URL:", data);
         alert("Stripe did not return a redirect URL.");
         return;
       }
 
-      // THIS IS THE ONLY ROUTE — no /pricing EVER
       window.location.href = data.url;
-
     } catch (err) {
-      console.error("Checkout exception:", err);
+      console.error("Checkout error:", err);
       alert("Unable to start checkout.");
     } finally {
       setLoadingUpgrade(false);
     }
   }
 
-  // -------------------------------------------------------
-
   return (
-    <main className="min-h-screen bg-black text-white flex flex-col items-center px-6 py-16">
-
+    <main
+      style={{
+        minHeight: "100vh",
+        backgroundColor: "#000000",
+        color: "#ffffff",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        padding: "60px 20px",
+      }}
+    >
       {/* HEADER */}
-      <div className="text-center mb-10 max-w-3xl">
-        <h1 className="text-4xl font-extrabold mb-2">
-          <span className="text-white">Signal</span>
-          <span className="text-green-400">Forge</span> Dashboard
+      <div style={{ textAlign: "center", marginBottom: "40px" }}>
+        <h1
+          style={{
+            fontSize: "3rem",
+            fontWeight: 900,
+            marginBottom: "10px",
+          }}
+        >
+          <span style={{ color: "#fff" }}>Signal</span>
+          <span style={{ color: "#22c55e" }}>Forge</span> Dashboard
         </h1>
-        <p className="text-gray-400">
-          Paste real pain. Get a clear BUILD / WATCH / KILL decision.
+        <p style={{ color: "#9ca3af", fontSize: "1.1rem" }}>
+          Paste real pain. Get a BUILD / WATCH / KILL decision instantly.
         </p>
       </div>
 
-      {/* INPUT */}
-      <div className="w-full max-w-3xl bg-[#0c0c0c] border border-gray-800 rounded-xl p-6 mb-10">
+      {/* INPUT CARD */}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: "800px",
+          background: "#0a0a0a",
+          border: "1px solid #1f2937",
+          borderRadius: "14px",
+          padding: "28px",
+          marginBottom: "40px",
+        }}
+      >
         <textarea
-          className="w-full min-h-[120px] bg-black border border-gray-700 rounded-lg p-4 text-white focus:outline-none focus:border-green-400"
+          style={{
+            width: "100%",
+            minHeight: "140px",
+            background: "#000",
+            border: "1px solid #333",
+            borderRadius: "8px",
+            padding: "16px",
+            color: "#fff",
+            fontSize: "1rem",
+          }}
           placeholder="Describe the raw pain, frustration, or demand…"
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -160,9 +185,19 @@ export default function DashboardPage() {
         <button
           onClick={handleSubmit}
           disabled={limitReached}
-          className={`mt-4 w-full bg-green-500 hover:bg-green-600 text-black font-semibold py-3 rounded-lg ${
-            limitReached ? "opacity-40 cursor-not-allowed" : ""
-          }`}
+          style={{
+            marginTop: "16px",
+            width: "100%",
+            backgroundColor: "#22c55e",
+            color: "#000",
+            padding: "14px 20px",
+            borderRadius: "999px",
+            fontWeight: 700,
+            fontSize: "1rem",
+            cursor: limitReached ? "not-allowed" : "pointer",
+            opacity: limitReached ? 0.35 : 1,
+            border: "none",
+          }}
         >
           {limitReached
             ? "Limit Reached — Upgrade to Continue"
@@ -172,28 +207,65 @@ export default function DashboardPage() {
 
       {/* LATEST RESULT */}
       {latest && (
-        <div className="w-full max-w-3xl border border-gray-800 rounded-xl p-6 mb-8">
-          <h2 className="text-xl font-bold text-center mb-3">Latest Result</h2>
+        <div
+          style={{
+            width: "100%",
+            maxWidth: "800px",
+            background: "#0a0a0a",
+            border: "1px solid #333",
+            padding: "28px",
+            borderRadius: "14px",
+            marginBottom: "40px",
+          }}
+        >
+          <h2
+            style={{
+              fontSize: "1.4rem",
+              fontWeight: 700,
+              textAlign: "center",
+              marginBottom: "14px",
+            }}
+          >
+            Latest Result
+          </h2>
 
-          <div className="text-center mb-4">
+          <div style={{ textAlign: "center", marginBottom: "10px" }}>
             <span
-              className={`text-2xl font-extrabold ${
-                latest.verdict === "BUILD"
-                  ? "text-green-400"
-                  : latest.verdict === "WATCH"
-                  ? "text-yellow-400"
-                  : "text-red-400"
-              }`}
+              style={{
+                fontSize: "1.8rem",
+                fontWeight: 800,
+                color:
+                  latest.verdict === "BUILD"
+                    ? "#22c55e"
+                    : latest.verdict === "WATCH"
+                    ? "#facc15"
+                    : "#ef4444",
+              }}
             >
               {latest.verdict} — Score {latest.score}
             </span>
           </div>
 
-          <p className="text-gray-400 italic text-center mb-4">
+          <p
+            style={{
+              textAlign: "center",
+              color: "#9ca3af",
+              fontStyle: "italic",
+              marginBottom: "14px",
+            }}
+          >
             “{latest.raw}”
           </p>
 
-          <ul className="text-gray-300 text-center space-y-1">
+          <ul
+            style={{
+              textAlign: "center",
+              listStyle: "none",
+              padding: 0,
+              color: "#d1d5db",
+              lineHeight: "1.7",
+            }}
+          >
             {latest.reason.map((r, i) => (
               <li key={i}>• {r}</li>
             ))}
@@ -203,69 +275,152 @@ export default function DashboardPage() {
 
       {/* HISTORY */}
       {history.length > 0 && (
-        <div className="max-w-3xl w-full text-center mb-16">
+        <div
+          style={{
+            width: "100%",
+            maxWidth: "800px",
+            textAlign: "center",
+            marginBottom: "40px",
+          }}
+        >
           <button
             onClick={() => setShowHistory(!showHistory)}
-            className="text-sm text-gray-400 hover:text-green-400 mb-4"
+            style={{
+              background: "none",
+              color: "#9ca3af",
+              border: "none",
+              cursor: "pointer",
+              marginBottom: "12px",
+            }}
           >
             {showHistory ? "Hide History ▲" : "View History ▼"}
           </button>
 
-          {showHistory && (
-            <>
-              {history.slice(0, FREE_HISTORY_LIMIT).map((item, i) => (
-                <div
-                  key={i}
-                  className="border border-gray-800 rounded-lg p-4 text-sm mb-3"
-                >
-                  <span
-                    className={`font-semibold ${
+          {showHistory &&
+            history.slice(0, FREE_HISTORY_LIMIT).map((item, i) => (
+              <div
+                key={i}
+                style={{
+                  border: "1px solid #1f2937",
+                  padding: "14px",
+                  borderRadius: "10px",
+                  marginBottom: "10px",
+                  color: "#d1d5db",
+                }}
+              >
+                <span
+                  style={{
+                    fontWeight: 700,
+                    color:
                       item.verdict === "BUILD"
-                        ? "text-green-400"
+                        ? "#22c55e"
                         : item.verdict === "WATCH"
-                        ? "text-yellow-400"
-                        : "text-red-400"
-                    }`}
-                  >
-                    {item.verdict}
-                  </span>{" "}
-                  — Score {item.score}
-                </div>
-              ))}
+                        ? "#facc15"
+                        : "#ef4444",
+                  }}
+                >
+                  {item.verdict}
+                </span>{" "}
+                — Score {item.score}
+              </div>
+            ))}
 
-              {history.length > FREE_HISTORY_LIMIT && plan === "free" && (
-                <div className="border border-dashed border-gray-700 rounded-lg p-5 text-gray-400">
-                  <p className="mb-2">
-                    🔒 Unlock full decision history with SignalForge Pro
-                  </p>
-                  <button
-                    onClick={handleUpgrade}
-                    disabled={loadingUpgrade}
-                    className="text-green-400 hover:underline font-semibold"
-                  >
-                    Upgrade to Pro →
-                  </button>
-                </div>
-              )}
-            </>
+          {history.length > FREE_HISTORY_LIMIT && plan === "free" && (
+            <div
+              style={{
+                border: "1px dashed #444",
+                padding: "20px",
+                borderRadius: "12px",
+                color: "#9ca3af",
+              }}
+            >
+              <p style={{ marginBottom: "10px" }}>
+                🔒 Unlock full decision history with SignalForge Pro
+              </p>
+              <button
+                onClick={handleUpgrade}
+                disabled={loadingUpgrade}
+                style={{
+                  background: "none",
+                  color: "#22c55e",
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                  border: "none",
+                }}
+              >
+                Upgrade to Pro →
+              </button>
+            </div>
           )}
         </div>
       )}
 
-      {/* UPGRADE CARD */}
-      <div className="max-w-3xl w-full border border-green-500 rounded-xl p-8 text-center">
-        <h3 className="text-2xl font-bold mb-3 text-green-400">
+      {/* FINAL UPGRADE CARD — HOMEPAGE STYLE */}
+      <div
+        style={{
+          marginTop: "20px",
+          width: "100%",
+          maxWidth: "700px",
+          background: "#0f0f0f",
+          border: "1px solid #22c55e55",
+          borderRadius: "16px",
+          padding: "32px",
+          textAlign: "center",
+        }}
+      >
+        <h3
+          style={{
+            fontSize: "1.8rem",
+            fontWeight: 800,
+            marginBottom: "12px",
+            color: "#22c55e",
+          }}
+        >
           SignalForge Pro — $29/month
         </h3>
-        <ul className="text-gray-300 mb-6 space-y-1">
-          <li>✔ Unlimited signals</li>
-          <li>✔ Full decision history</li>
-          <li>✔ Clear BUILD / WATCH / KILL results</li>
+
+        <p
+          style={{
+            color: "#d1d5db",
+            marginBottom: "20px",
+            fontSize: "1rem",
+            lineHeight: "1.6",
+          }}
+        >
+          Unlock unlimited signals, full history, and deeper breakdowns.
+        </p>
+
+        <ul
+          style={{
+            listStyle: "none",
+            padding: 0,
+            margin: "0 0 28px 0",
+            color: "#9ca3af",
+            fontSize: "0.95rem",
+            lineHeight: "1.7",
+          }}
+        >
+          <li>✔ Unlimited Signals</li>
+          <li>✔ Full Decision History</li>
+          <li>✔ Deeper Reasoning</li>
+          <li>✔ BUILD / WATCH / KILL Verdicts</li>
+          <li>✔ Faster Scoring Engine</li>
         </ul>
+
         <button
           onClick={handleUpgrade}
           disabled={loadingUpgrade}
-          className="bg-green-500 hover:bg-green-600 text-black font-semibold px-8 py-3 rounded-lg disabled:opacity-60"
+          style={{
+            backgroundColor: "#22c55e",
+            color: "#000",
+            padding: "14px 32px",
+            borderRadius: "999px",
+            fontWeight: 700,
+            fontSize: "1.05rem",
+            cursor: loadingUpgrade ? "wait" : "pointer",
+            opacity: loadingUpgrade ? 0.6 : 1,
+            border: "none",
+          }}
         >
           {loadingUpgrade ? "Redirecting…" : "Upgrade to Pro →"}
         </button>
