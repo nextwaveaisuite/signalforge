@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-// 🔥 Prevent Vercel from caching old versions of this page
+// 🔥 Force Vercel to always rebuild this page dynamically
 export const dynamic = "force-dynamic";
 
 type Result = {
@@ -20,12 +20,19 @@ export default function DashboardPage() {
   const [history, setHistory] = useState<Result[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [loadingUpgrade, setLoadingUpgrade] = useState(false);
+
+  // user plan
   const [plan, setPlan] = useState<"free" | "pro">("free");
 
+  // 🔥 Always load plan fresh (fixes stale cache problem)
   useEffect(() => {
     async function loadPlan() {
       try {
-        const res = await fetch("/api/user/plan", { cache: "no-store" });
+        const res = await fetch("/api/user/plan", {
+          cache: "no-store",
+          method: "GET",
+        });
+
         const data = await res.json();
         setPlan(data.plan || "free");
       } catch {
@@ -38,6 +45,7 @@ export default function DashboardPage() {
   const limitReached =
     plan === "free" && history.length >= FREE_HISTORY_LIMIT;
 
+  // same evaluator
   function evaluateSignal(text: string): Result {
     const t = text.toLowerCase();
 
@@ -86,32 +94,45 @@ export default function DashboardPage() {
     setInput("");
   }
 
-  // 🔥 FIXED CHECKOUT HANDLER
+  // -------------------------------------------------------
+  // 🔥🔥🔥 THE FULLY FIXED UPGRADE BUTTON (NO MORE 404)
+  // -------------------------------------------------------
   async function handleUpgrade() {
     setLoadingUpgrade(true);
 
     try {
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
         cache: "no-store",
       });
 
-      const data = await res.json();
-
-      if (data?.url) {
-        window.location.href = data.url;
+      if (!res.ok) {
+        console.error("Checkout error: Bad response", await res.text());
+        alert("Checkout failed. Please try again.");
         return;
       }
 
-      console.error("Stripe response:", data);
-      alert("Checkout failed: Invalid response.");
+      const data = await res.json();
+
+      if (!data.url) {
+        console.error("Checkout error: Missing URL", data);
+        alert("Stripe did not return a redirect URL.");
+        return;
+      }
+
+      // THIS IS THE ONLY ROUTE — no /pricing EVER
+      window.location.href = data.url;
+
     } catch (err) {
-      console.error("Checkout error:", err);
-      alert("Unable to start checkout. Please try again.");
+      console.error("Checkout exception:", err);
+      alert("Unable to start checkout.");
     } finally {
       setLoadingUpgrade(false);
     }
   }
+
+  // -------------------------------------------------------
 
   return (
     <main className="min-h-screen bg-black text-white flex flex-col items-center px-6 py-16">
@@ -192,27 +213,25 @@ export default function DashboardPage() {
 
           {showHistory && (
             <>
-              {history
-                .slice(0, FREE_HISTORY_LIMIT)
-                .map((item, i) => (
-                  <div
-                    key={i}
-                    className="border border-gray-800 rounded-lg p-4 text-sm mb-3"
+              {history.slice(0, FREE_HISTORY_LIMIT).map((item, i) => (
+                <div
+                  key={i}
+                  className="border border-gray-800 rounded-lg p-4 text-sm mb-3"
+                >
+                  <span
+                    className={`font-semibold ${
+                      item.verdict === "BUILD"
+                        ? "text-green-400"
+                        : item.verdict === "WATCH"
+                        ? "text-yellow-400"
+                        : "text-red-400"
+                    }`}
                   >
-                    <span
-                      className={`font-semibold ${
-                        item.verdict === "BUILD"
-                          ? "text-green-400"
-                          : item.verdict === "WATCH"
-                          ? "text-yellow-400"
-                          : "text-red-400"
-                      }`}
-                    >
-                      {item.verdict}
-                    </span>{" "}
-                    — Score {item.score}
-                  </div>
-                ))}
+                    {item.verdict}
+                  </span>{" "}
+                  — Score {item.score}
+                </div>
+              ))}
 
               {history.length > FREE_HISTORY_LIMIT && plan === "free" && (
                 <div className="border border-dashed border-gray-700 rounded-lg p-5 text-gray-400">
