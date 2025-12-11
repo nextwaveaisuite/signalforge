@@ -1,61 +1,41 @@
-import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import fs from "fs";
+import { NextResponse } from "next/server";
+import { setUserPlan } from "@/lib/userStore";
 
 export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16",
 });
 
-const USERS_FILE = process.cwd() + "/data/users.json";
+export async function POST(request: Request) {
+  const sig = request.headers.get("stripe-signature")!;
 
-function loadUsers() {
-  try {
-    return JSON.parse(fs.readFileSync(USERS_FILE, "utf8"));
-  } catch {
-    return { users: {} };
-  }
-}
-
-function saveUsers(data: any) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(data, null, 2));
-}
-
-export async function POST(req: Request) {
-  const sig = req.headers.get("stripe-signature");
-  const rawBody = await req.text();
-
-  let event: Stripe.Event;
+  let event;
+  const body = await request.text();
 
   try {
     event = stripe.webhooks.constructEvent(
-      rawBody,
-      sig!,
+      body,
+      sig,
       process.env.STRIPE_WEBHOOK_SECRET!
     );
-  } catch (err) {
-    console.error("⚠️ Webhook signature verification failed.", err);
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+  } catch (err: any) {
+    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
-  // 🔥 Handle successful subscription
+  // 🔥 Handle subscription activation
   if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
+    const session = event.data.object;
+    const customerId = session.customer as string;
 
-    if (!session.customer) {
-      console.warn("No customer ID in session");
-      return NextResponse.json({ status: "ok" });
-    }
+    setUserPlan(customerId, "pro");
+  }
 
-    const customerId = session.customer.toString();
-    const data = loadUsers();
-
-    data.users[customerId] = { plan: "pro" };
-    saveUsers(data);
-
-    console.log("🔥 User upgraded:", customerId);
+  // 🔥 Handle subscription cancellation (optional)
+  if (event.type === "customer.subscription.deleted") {
+    const customerId = event.data.object.customer as string;
+    setUserPlan(customerId, "free");
   }
 
   return NextResponse.json({ received: true });
