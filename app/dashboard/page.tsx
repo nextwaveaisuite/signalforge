@@ -122,26 +122,6 @@ export default function DashboardPage() {
     setHistory(history.filter((h) => h.id !== id));
   }
 
-  // -------------------------------------------
-  // Stripe Upgrade
-  // -------------------------------------------
-  async function handleUpgrade() {
-    setLoadingUpgrade(true);
-
-    try {
-      const res = await fetch("/api/stripe/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-      });
-
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    } finally {
-      setLoadingUpgrade(false);
-    }
-  }
-
   return (
     <main
       style={{
@@ -155,7 +135,7 @@ export default function DashboardPage() {
       }}
     >
 
-      {/* 🔙 BACK BUTTON — matches your theme */}
+      {/* 🔙 BACK BUTTON */}
       <button
         onClick={() => (window.location.href = "/")}
         style={{
@@ -307,7 +287,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* HISTORY SECTION — with delete option */}
+      {/* HISTORY SECTION — stays exactly the same */}
       {history.length > 0 && (
         <div
           style={{
@@ -357,7 +337,9 @@ export default function DashboardPage() {
                 </strong>{" "}
                 — Score {item.score}
 
-                <p style={{ marginTop: "6px", fontStyle: "italic", color: "#9ca3af" }}>
+                <p
+                  style={{ marginTop: "6px", fontStyle: "italic", color: "#9ca3af" }}
+                >
                   “{item.raw}”
                 </p>
 
@@ -380,59 +362,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* UPGRADE / BUY BUTTON */}
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "700px",
-          background: "#0f0f0f",
-          border: "1px solid #22c55e55",
-          borderRadius: "16px",
-          padding: "32px",
-          textAlign: "center",
-          marginTop: "20px",
-        }}
-      >
-        <h3
-          style={{
-            fontSize: "1.8rem",
-            fontWeight: 800,
-            marginBottom: "12px",
-            color: "#22c55e",
-          }}
-        >
-          SignalForge Pro — $29/month
-        </h3>
-
-        <p
-          style={{
-            color: "#d1d5db",
-            marginBottom: "20px",
-            fontSize: "1rem",
-            lineHeight: "1.6",
-          }}
-        >
-          Unlock unlimited signals, deeper breakdowns, and full decision history.
-        </p>
-
-        <button
-          onClick={handleUpgrade}
-          disabled={loadingUpgrade}
-          style={{
-            backgroundColor: "#22c55e",
-            color: "#000",
-            padding: "14px 32px",
-            borderRadius: "999px",
-            fontWeight: 700,
-            fontSize: "1.05rem",
-            cursor: loadingUpgrade ? "wait" : "pointer",
-            opacity: loadingUpgrade ? 0.6 : 1,
-            border: "none",
-          }}
-        >
-          {loadingUpgrade ? "Redirecting…" : "Upgrade to Pro →"}
-        </button>
-      </div>
+      {/* 🚫 PRO CARD REMOVED COMPLETELY */}
     </main>
   );
 }
