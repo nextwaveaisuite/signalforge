@@ -12,23 +12,19 @@ export async function POST() {
       payment_method_types: ["card"],
       line_items: [
         {
-          price: process.env.STRIPE_PRICE_ID!,
+          price: process.env.STRIPE_PRICE_ID!, // e.g. price_1234
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?upgrade=success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?upgrade=cancelled`,
-
-      // 🔥 REMOVE pricing references completely
-      // no: /pricing
-      // no: /pricing?canceled=1
+      success_url: "https://signal.nextwaveaisuite.com/dashboard?upgraded=true",
+      cancel_url: "https://signal.nextwaveaisuite.com/pricing",
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (err) {
-    console.error("Stripe checkout error:", err);
+  } catch (error) {
+    console.error("Checkout error:", error);
     return NextResponse.json(
-      { error: "Stripe checkout failed" },
+      { error: "Checkout failed" },
       { status: 500 }
     );
   }
