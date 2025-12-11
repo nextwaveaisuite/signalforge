@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2023-10-16",
+  apiVersion: "2024-06-20",
 });
 
 export async function POST() {
@@ -19,13 +19,13 @@ export async function POST() {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/cancel`,
+      success_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard?upgraded=1`,
+      cancel_url: `${process.env.NEXT_PUBLIC_SITE_URL}/dashboard`,
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (error) {
-    console.error("Stripe Checkout Error:", error);
+  } catch (err: any) {
+    console.error("Stripe checkout error:", err);
     return NextResponse.json({ error: "Checkout failed" }, { status: 500 });
   }
 }
