@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { hashPassword, generateToken, findUserByEmail } from "@/lib/auth";
+import {
+  db,
+  hashPassword,
+  findUserByEmail,
+  generateToken,
+  User,
+} from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,45 +13,47 @@ export async function POST(req: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json(
-        { error: "Email and password required" },
+        { error: "Missing fields" },
         { status: 400 }
       );
     }
 
-    // Already exists?
-    if (findUserByEmail(email)) {
+    const existing = await findUserByEmail(email);
+    if (existing) {
       return NextResponse.json(
-        { error: "Email already registered" },
+        { error: "User already exists" },
         { status: 400 }
       );
     }
 
     const passwordHash = await hashPassword(password);
 
-    const user = {
+    const user: User = {
       id: crypto.randomUUID(),
       email,
       passwordHash,
-      plan: "free",
+      plan: "free", // ✅ literal union
     };
 
     db.users.push(user);
 
-    const token = generateToken(user.id);
+    const token = generateToken({ id: user.id, email: user.email });
 
-    const res = NextResponse.json({ user: { email, plan: user.plan } });
+    const res = NextResponse.json({
+      user: { email: user.email, plan: user.plan },
+    });
 
-    // Set JWT cookie
-    res.cookies.set("sf_token", token, {
+    res.cookies.set("token", token, {
       httpOnly: true,
-      secure: true,
-      sameSite: "strict",
-      maxAge: 60 * 60 * 24 * 7,
       path: "/",
     });
 
     return res;
-  } catch (e) {
-    return NextResponse.json({ error: "Signup failed" }, { status: 500 });
+  } catch (err) {
+    console.error("Signup error:", err);
+    return NextResponse.json(
+      { error: "Signup failed" },
+      { status: 500 }
+    );
   }
 }
