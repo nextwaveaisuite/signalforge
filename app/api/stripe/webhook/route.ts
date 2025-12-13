@@ -1,6 +1,6 @@
+import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { NextResponse } from "next/server";
-import { setUserPlan } from "@/lib/userStore";
+import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -8,34 +8,40 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16",
 });
 
-export async function POST(request: Request) {
-  const sig = request.headers.get("stripe-signature")!;
+export async function POST(req: NextRequest) {
+  const body = await req.text();
+  const signature = req.headers.get("stripe-signature");
 
-  let event;
-  const body = await request.text();
+  if (!signature) {
+    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+  }
+
+  let event: Stripe.Event;
 
   try {
     event = stripe.webhooks.constructEvent(
       body,
-      sig,
+      signature,
       process.env.STRIPE_WEBHOOK_SECRET!
     );
   } catch (err: any) {
-    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+    console.error("Webhook signature error:", err.message);
+    return NextResponse.json({ error: "Webhook error" }, { status: 400 });
   }
 
-  // 🔥 Handle subscription activation
+  // ✅ PAYMENT SUCCESS
   if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
-    const customerId = session.customer as string;
+    const session = event.data.object as Stripe.Checkout.Session;
 
-    setUserPlan(customerId, "pro");
-  }
+    const email = session.customer_details?.email;
 
-  // 🔥 Handle subscription cancellation (optional)
-  if (event.type === "customer.subscription.deleted") {
-    const customerId = event.data.object.customer as string;
-    setUserPlan(customerId, "free");
+    if (email) {
+      const user = db.users.find((u) => u.email === email);
+      if (user) {
+        user.plan = "pro"; // 🔥 UPGRADE
+        console.log("User upgraded to PRO:", email);
+      }
+    }
   }
 
   return NextResponse.json({ received: true });
