@@ -1,35 +1,61 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
 import { verifyPassword, generateToken, findUserByEmail } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
 
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: "Missing credentials" },
+        { status: 400 }
+      );
+    }
+
     const user = findUserByEmail(email);
-    if (!user)
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 400 });
 
-    const valid = await verifyPassword(password, user.passwordHash);
-    if (!valid)
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 400 });
+    if (!user) {
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 400 }
+      );
+    }
 
-    const token = generateToken(user.id);
+    const valid = verifyPassword(password, user.passwordHash);
 
-    const res = NextResponse.json({
-      user: { email: user.email, plan: user.plan },
+    if (!valid) {
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ FIX IS HERE
+    const token = generateToken({
+      id: user.id,
+      email: user.email,
     });
 
-    res.cookies.set("sf_token", token, {
+    const res = NextResponse.json({
+      user: {
+        email: user.email,
+        plan: "free",
+      },
+    });
+
+    res.cookies.set("signalforge_token", token, {
       httpOnly: true,
-      secure: true,
-      sameSite: "strict",
-      maxAge: 60 * 60 * 24 * 7,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       path: "/",
     });
 
     return res;
-  } catch {
-    return NextResponse.json({ error: "Login failed" }, { status: 500 });
+  } catch (err) {
+    console.error("Login error:", err);
+    return NextResponse.json(
+      { error: "Server error" },
+      { status: 500 }
+    );
   }
 }
