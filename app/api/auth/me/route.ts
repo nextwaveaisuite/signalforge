@@ -1,21 +1,27 @@
-import { NextRequest, NextResponse } from "next/server";
-import { verifyToken, findUserById } from "@/lib/auth";
+import { NextResponse } from "next/server";
+import { getTokenName, verifyToken } from "@/lib/auth";
 
-export async function GET(req: NextRequest) {
-  const token = req.cookies.get("sf_token")?.value;
+export const runtime = "nodejs";
 
-  if (!token) return NextResponse.json({ user: null });
+export async function GET(request: Request) {
+  const cookieHeader = request.headers.get("cookie") || "";
+  const tokenName = getTokenName();
 
-  const decoded = verifyToken(token);
-  if (!decoded) return NextResponse.json({ user: null });
+  const token = cookieHeader
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${tokenName}=`))
+    ?.split("=")[1];
 
-  const user = findUserById(decoded.userId);
-  if (!user) return NextResponse.json({ user: null });
+  if (!token) {
+    return NextResponse.json({ user: null }, { status: 200 });
+  }
 
-  return NextResponse.json({
-    user: {
-      email: user.email,
-      plan: user.plan,
-    },
-  });
+  const decoded = verifyToken<{ email: string }>(decodeURIComponent(token));
+
+  if (!decoded?.email) {
+    return NextResponse.json({ user: null }, { status: 200 });
+  }
+
+  return NextResponse.json({ user: { email: decoded.email } }, { status: 200 });
 }
