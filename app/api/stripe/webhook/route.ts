@@ -1,18 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { getSupabase } from "@/lib/supabase";
-
-export const runtime = "nodejs";
+import { supabase } from "@/lib/supabase";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16",
 });
 
 export async function POST(req: NextRequest) {
-  const sig = req.headers.get("stripe-signature");
   const body = await req.text();
-
-  if (!sig) return NextResponse.json({ error: "No signature" }, { status: 400 });
+  const sig = req.headers.get("stripe-signature")!;
 
   const event = stripe.webhooks.constructEvent(
     body,
@@ -25,7 +21,6 @@ export async function POST(req: NextRequest) {
     const email = session.customer_details?.email;
 
     if (email) {
-      const supabase = getSupabase();
       await supabase
         .from("users")
         .update({ plan: "pro" })
