@@ -1,22 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getUserEmailFromCookie, findUserByEmail } from "@/lib/auth";
+
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  const email = getUserEmailFromCookie();
-  if (!email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  try {
+    const body = await req.json();
+    const { user_id, raw, verdict, score } = body;
 
-  const user = await findUserByEmail(email);
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    const { error } = await supabase.from("signals").insert({
+      user_id,
+      raw,
+      verdict,
+      score
+    });
 
-  const { raw, verdict, score } = await req.json();
+    if (error) {
+      console.error(error);
+      return NextResponse.json({ error: "Insert failed" }, { status: 500 });
+    }
 
-  await supabase.from("signals").insert({
-    user_id: user.id,
-    raw,
-    verdict,
-    score,
-  });
-
-  return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Bad request" }, { status: 400 });
+  }
 }
