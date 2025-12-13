@@ -1,32 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "@/lib/auth";
+import { NextResponse } from "next/server";
+import { getUserEmailFromCookie, findUserByEmail } from "@/lib/auth";
 
-export const runtime = "nodejs";
+export async function GET() {
+  const email = getUserEmailFromCookie();
+  if (!email) return NextResponse.json({ user: null });
 
-export async function GET(req: NextRequest) {
-  try {
-    const token = req.cookies.get("token")?.value;
+  const user = await findUserByEmail(email);
+  if (!user) return NextResponse.json({ user: null });
 
-    if (!token) {
-      return NextResponse.json(
-        { authenticated: false },
-        { status: 401 }
-      );
-    }
-
-    const payload = verifyToken(token);
-
-    return NextResponse.json({
-      authenticated: true,
-      user: {
-        id: payload.id,
-        email: payload.email,
-      },
-    });
-  } catch (err) {
-    return NextResponse.json(
-      { authenticated: false },
-      { status: 401 }
-    );
-  }
+  return NextResponse.json({
+    user: { email: user.email, plan: user.plan },
+  });
 }
