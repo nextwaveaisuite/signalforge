@@ -1,74 +1,54 @@
-import * as bcrypt from "bcryptjs";
-import * as jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcryptjs";
 
-export type AuthUser = {
+export type User = {
   id: string;
   email: string;
   passwordHash: string;
+  plan: "free" | "pro";
 };
 
-function requireEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env var: ${name}`);
-  return v;
+export const db: { users: User[] } = {
+  users: [],
+};
+
+const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
+
+/* ----------------------------------------
+   PASSWORD
+---------------------------------------- */
+export async function hashPassword(password: string) {
+  return bcrypt.hash(password, 10);
 }
 
-/**
- * Used by /api/auth/me to know what cookie/header name to read.
- * If your me route uses cookies, keep this stable.
- */
-export function getTokenName(): string {
-  return "signalforge_token";
+export async function verifyPassword(
+  password: string,
+  hash: string
+) {
+  return bcrypt.compare(password, hash);
 }
 
-/* -------------------------
-   PASSWORD HELPERS
-------------------------- */
-
-export function hashPassword(password: string): string {
-  return bcrypt.hashSync(password, 10);
+/* ----------------------------------------
+   USER HELPERS
+---------------------------------------- */
+export async function findUserByEmail(email: string) {
+  return db.users.find((u) => u.email === email);
 }
 
-export function verifyPassword(password: string, hash: string): boolean {
-  return bcrypt.compareSync(password, hash);
+/* ----------------------------------------
+   TOKEN
+---------------------------------------- */
+export function generateToken(user: { id: string; email: string }) {
+  return jwt.sign(
+    { id: user.id, email: user.email },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
 }
 
-/* -------------------------
-   TOKEN HELPERS
-------------------------- */
-
-export function generateToken(user: { id: string; email: string }): string {
-  const secret = requireEnv("JWT_SECRET");
-  return jwt.sign({ id: user.id, email: user.email }, secret, {
-    expiresIn: "7d",
-  });
-}
-
-export function verifyToken<T = any>(token: string): T | null {
-  try {
-    const secret = requireEnv("JWT_SECRET");
-    return jwt.verify(token, secret) as T;
-  } catch {
-    return null;
-  }
-}
-
-/* -------------------------
-   TEMP USER LOOKUP (STUB)
-   Phase 1 — NO DATABASE
-   IMPORTANT: This is synchronous on purpose so
-   routes that forgot `await` still compile.
-------------------------- */
-
-export function findUserByEmail(email: string): AuthUser | null {
-  // ✅ Temporary single-user stub (so auth routes compile)
-  // You can later replace with a real DB lookup.
-  const tempPassword = "nextwave2025"; // change anytime
-  const passwordHash = hashPassword(tempPassword);
-
-  return {
-    id: "temp-user-id",
-    email,
-    passwordHash,
+export function verifyToken(token: string) {
+  return jwt.verify(token, JWT_SECRET) as {
+    id: string;
+    email: string;
   };
 }
