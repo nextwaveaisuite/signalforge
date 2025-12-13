@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyPassword, generateToken, findUserByEmail } from "@/lib/auth";
+import {
+  verifyPassword,
+  generateToken,
+  findUserByEmail,
+} from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
 
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: "Missing credentials" },
-        { status: 400 }
-      );
-    }
-
-    const user = findUserByEmail(email);
-
+    const user = await findUserByEmail(email);
     if (!user) {
       return NextResponse.json(
         { error: "Invalid credentials" },
@@ -21,7 +17,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const valid = verifyPassword(password, user.passwordHash);
+    const valid = await verifyPassword(
+      password,
+      user.passwordHash
+    );
 
     if (!valid) {
       return NextResponse.json(
@@ -30,23 +29,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ FIX IS HERE
     const token = generateToken({
       id: user.id,
       email: user.email,
     });
 
     const res = NextResponse.json({
-      user: {
-        email: user.email,
-        plan: "free",
-      },
+      user: { email: user.email, plan: user.plan },
     });
 
-    res.cookies.set("signalforge_token", token, {
+    res.cookies.set("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
       path: "/",
     });
 
@@ -54,7 +47,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("Login error:", err);
     return NextResponse.json(
-      { error: "Server error" },
+      { error: "Login failed" },
       { status: 500 }
     );
   }
