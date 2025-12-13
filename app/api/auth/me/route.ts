@@ -1,27 +1,32 @@
-import { NextResponse } from "next/server";
-import { getTokenName, verifyToken } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
+import { verifyToken } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
-export async function GET(request: Request) {
-  const cookieHeader = request.headers.get("cookie") || "";
-  const tokenName = getTokenName();
+export async function GET(req: NextRequest) {
+  try {
+    const token = req.cookies.get("token")?.value;
 
-  const token = cookieHeader
-    .split(";")
-    .map((c) => c.trim())
-    .find((c) => c.startsWith(`${tokenName}=`))
-    ?.split("=")[1];
+    if (!token) {
+      return NextResponse.json(
+        { authenticated: false },
+        { status: 401 }
+      );
+    }
 
-  if (!token) {
-    return NextResponse.json({ user: null }, { status: 200 });
+    const payload = verifyToken(token);
+
+    return NextResponse.json({
+      authenticated: true,
+      user: {
+        id: payload.id,
+        email: payload.email,
+      },
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { authenticated: false },
+      { status: 401 }
+    );
   }
-
-  const decoded = verifyToken<{ email: string }>(decodeURIComponent(token));
-
-  if (!decoded?.email) {
-    return NextResponse.json({ user: null }, { status: 200 });
-  }
-
-  return NextResponse.json({ user: { email: decoded.email } }, { status: 200 });
 }
