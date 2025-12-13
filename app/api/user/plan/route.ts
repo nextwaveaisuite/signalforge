@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
+import { getUserEmailFromCookie, findUserByEmail } from "@/lib/auth";
 
 export async function GET() {
-  try {
-    // 👉 TEMP simple plan check (always "free")
-    return NextResponse.json({ plan: "free" });
-  } catch {
-    return NextResponse.json({ plan: "free" });
-  }
+  const email = getUserEmailFromCookie();
+  if (!email) return NextResponse.json({ plan: "free" });
+
+  const user = await findUserByEmail(email);
+  return NextResponse.json({ plan: user?.plan || "free" });
 }
