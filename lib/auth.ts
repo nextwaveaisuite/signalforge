@@ -1,44 +1,36 @@
-import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
-import { db } from "./db";
+import * as bcrypt from "bcryptjs";
+import * as jwt from "jsonwebtoken";
 
-// SECRET used for signing tokens
-const SECRET = process.env.JWT_SECRET || "signalforge-dev-secret";
+const TOKEN_NAME = "sf_token";
 
-// -------------------------
-// PASSWORD HELPERS
-// -------------------------
-export async function hashPassword(password: string) {
-  const salt = await bcrypt.genSalt(10);
-  return await bcrypt.hash(password, salt);
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing env var: ${name}`);
+  return v;
 }
 
-export async function verifyPassword(password: string, hash: string) {
-  return await bcrypt.compare(password, hash);
+export function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10);
 }
 
-// -------------------------
-// JWT HELPERS
-// -------------------------
-export function generateToken(userId: string) {
-  return jwt.sign({ userId }, SECRET, { expiresIn: "7d" });
+export function verifyPassword(password: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(password, hash);
 }
 
-export function verifyToken(token: string) {
+export function signToken(payload: object): string {
+  const secret = requireEnv("JWT_SECRET");
+  return jwt.sign(payload, secret, { expiresIn: "7d" });
+}
+
+export function verifyToken<T = any>(token: string): T | null {
   try {
-    return jwt.verify(token, SECRET) as { userId: string };
+    const secret = requireEnv("JWT_SECRET");
+    return jwt.verify(token, secret) as T;
   } catch {
     return null;
   }
 }
 
-// -------------------------
-// FIND USER
-// -------------------------
-export function findUserByEmail(email: string) {
-  return db.users.find((u) => u.email === email);
-}
-
-export function findUserById(id: string) {
-  return db.users.find((u) => u.id === id);
+export function getTokenName() {
+  return TOKEN_NAME;
 }
