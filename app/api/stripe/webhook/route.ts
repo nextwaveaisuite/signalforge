@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { db } from "@/lib/db";
+import { supabase } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 
@@ -25,22 +25,22 @@ export async function POST(req: NextRequest) {
       process.env.STRIPE_WEBHOOK_SECRET!
     );
   } catch (err: any) {
-    console.error("Webhook signature error:", err.message);
+    console.error("Webhook error:", err.message);
     return NextResponse.json({ error: "Webhook error" }, { status: 400 });
   }
 
-  // ✅ PAYMENT SUCCESS
+  // ✅ PAYMENT SUCCESS → UPGRADE USER
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
-
     const email = session.customer_details?.email;
 
     if (email) {
-      const user = db.users.find((u) => u.email === email);
-      if (user) {
-        user.plan = "pro"; // 🔥 UPGRADE
-        console.log("User upgraded to PRO:", email);
-      }
+      await supabase
+        .from("users")
+        .update({ plan: "pro" })
+        .eq("email", email);
+
+      console.log("✅ User upgraded to PRO:", email);
     }
   }
 
